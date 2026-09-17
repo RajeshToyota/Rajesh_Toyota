@@ -9,6 +9,8 @@ export default function HomeScreen() {
   const actions = [
     { href: "/(app)/quotes/new" as const, label: "New Quote", description: "Build and share a vehicle quotation" },
     { href: "/(app)/quotes" as const, label: "My Quotes", description: "View quotes you've created" },
+    { href: "/(app)/bookings/new" as const, label: "New Booking", description: "Book a vehicle directly, no prior quote needed" },
+    { href: "/(app)/bookings" as const, label: "My Bookings", description: "View bookings you've created" },
     { href: "/(app)/profile" as const, label: "Profile", description: "Your role, outlet, and manager" },
   ];
 
