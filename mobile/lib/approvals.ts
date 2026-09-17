@@ -57,6 +57,25 @@ export async function createApprovalRequest(params: {
   if (error) throw new Error(error.message);
 }
 
+export async function decideApproval(
+  approvalId: string,
+  decision: "approved" | "rejected",
+  approverEmployeeId: string,
+  comment?: string,
+) {
+  const { error } = await supabase
+    .from("approvals")
+    .update({
+      status: decision,
+      approver_employee_id: approverEmployeeId,
+      comment: comment || null,
+      decided_at: new Date().toISOString(),
+    })
+    .eq("id", approvalId);
+
+  if (error) throw new Error(error.message);
+}
+
 export async function getLatestApprovalStatus(quoteId: string) {
   const { data } = await supabase
     .from("approvals")

@@ -18,6 +18,7 @@ import {
   shareQuotePdfNative,
   uploadQuotePdf,
 } from "@/lib/quote-document";
+import { queuePendingUpload } from "@/lib/upload-queue";
 import type { PricingResult } from "@/lib/types";
 
 const STEP_TITLES = ["Customer", ...VEHICLE_STEP_TITLES, "Summary", "Share"];
@@ -129,13 +130,26 @@ export default function NewQuoteScreen() {
       };
 
       if (channel === "pdf") {
+        // Generation and the native share sheet are fully local/offline — only the Storage
+        // upload + status update need a network round-trip, so isolate that failure from the
+        // rest of the action rather than losing the whole share attempt to a dropped connection.
         const html = buildQuoteHtml(docData);
         const uri = await generateQuotePdf(html);
-        await uploadQuotePdf(uri, employee.id, quoteId);
-        await supabase
-          .from("quotes")
-          .update({ status: "sent", pdf_storage_path: `${employee.id}/${quoteId}.pdf` })
-          .eq("id", quoteId);
+
+        try {
+          await uploadQuotePdf(uri, employee.id, quoteId);
+          await supabase
+            .from("quotes")
+            .update({ status: "sent", pdf_storage_path: `${employee.id}/${quoteId}.pdf` })
+            .eq("id", quoteId);
+        } catch {
+          await queuePendingUpload({ quoteId, employeeId: employee.id, localUri: uri });
+          Alert.alert(
+            "Saved for later upload",
+            "The PDF is ready to share now, but couldn't be saved to your quote record — it'll upload automatically once you're back online.",
+          );
+        }
+
         await shareQuotePdfNative(uri);
       } else {
         const message = buildWhatsAppMessage(docData);

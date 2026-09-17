@@ -28,7 +28,7 @@ export default async function DashboardHome() {
     { label: "Employees", value: employees, href: "/admin/employees" },
     { label: "Variants", value: variants, href: "/admin/variants" },
     { label: "Active Schemes", value: schemes, href: "/admin/schemes" },
-    { label: "Pending Approvals", value: pendingApprovals, href: "/reports" },
+    { label: "Pending Approvals", value: pendingApprovals, href: "/reports/approvals" },
   ];
 
   return (
