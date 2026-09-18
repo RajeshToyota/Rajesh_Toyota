@@ -43,17 +43,24 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
   }
 
   async function loadOptions() {
-    const next: OptionMap = {};
-    for (const f of fkFields) {
-      if (!f.foreignTable) continue;
-      const labelKey = f.foreignLabelKey ?? "name";
-      const { data } = await supabase.from(f.foreignTable).select("*");
-      next[f.key] = ((data ?? []) as Record<string, unknown>[]).map((r) => ({
-        value: r.id as string,
-        label: String(r[labelKey] ?? r.id),
-      }));
-    }
-    setOptions(next);
+    // Fetch every foreign-key field's options in parallel — this was previously a sequential
+    // for-of loop, so a table with N foreign keys paid N round-trips back to back instead of
+    // the cost of the slowest one. Especially costly with the app on Vercel and the database on
+    // a different Supabase region, where each round-trip carries real cross-region latency.
+    const entries = await Promise.all(
+      fkFields
+        .filter((f) => f.foreignTable)
+        .map(async (f) => {
+          const labelKey = f.foreignLabelKey ?? "name";
+          const { data } = await supabase.from(f.foreignTable!).select("*");
+          const options = ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+            value: r.id as string,
+            label: String(r[labelKey] ?? r.id),
+          }));
+          return [f.key, options] as const;
+        }),
+    );
+    setOptions(Object.fromEntries(entries));
   }
 
   useEffect(() => {
