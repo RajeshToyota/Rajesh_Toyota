@@ -92,9 +92,10 @@ export function useVehicleSelection(state: string) {
   useEffect(() => {
     if (!modelId) return;
     const today = new Date().toISOString().slice(0, 10);
+    const selectedSuffix = variantsForModel.find((v) => v.id === variantId)?.suffix ?? null;
     supabase
       .from("schemes")
-      .select("id, scheme_line_items(id, line_type, is_customer_facing, scheme_conditions(mutually_exclusive_group, requires_exchange, requires_scrap))")
+      .select("id, suffix_scope_list, scheme_line_items(id, line_type, is_customer_facing, scheme_conditions(mutually_exclusive_group, requires_exchange, requires_scrap))")
       .eq("model_id", modelId)
       .lte("valid_from", today)
       .gte("valid_to", today)
@@ -102,6 +103,13 @@ export function useVehicleSelection(state: string) {
         const items: Row[] = [];
         const groups: Record<string, string> = {};
         for (const scheme of data ?? []) {
+          // A scheme scoped to a specific suffix list only applies once we know which variant
+          // (and thus suffix) the customer picked — until then, show nothing scoped rather than
+          // an item that would later fail pricing with "not active for this variant".
+          const inScope =
+            !scheme.suffix_scope_list ||
+            (selectedSuffix !== null && scheme.suffix_scope_list.includes(selectedSuffix));
+          if (!inScope) continue;
           for (const li of scheme.scheme_line_items ?? []) {
             if (!li.is_customer_facing) continue;
             const condition = Array.isArray(li.scheme_conditions) ? li.scheme_conditions[0] : li.scheme_conditions;
@@ -112,7 +120,7 @@ export function useVehicleSelection(state: string) {
         setSchemeLineItems(items);
         setSchemeGroups(groups);
       });
-  }, [modelId]);
+  }, [modelId, variantId, variantsForModel]);
 
   useEffect(() => {
     if (insuranceChoice !== "rajesh_toyota") return;

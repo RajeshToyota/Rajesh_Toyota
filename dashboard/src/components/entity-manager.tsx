@@ -110,6 +110,9 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
         payload[f.key] = v === "" ? null : v;
       } else if (f.type === "date") {
         payload[f.key] = v === "" ? null : v;
+      } else if (f.type === "text_array") {
+        const parts = String(v ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+        payload[f.key] = parts.length > 0 ? parts : null;
       } else {
         payload[f.key] = v;
       }
@@ -136,6 +139,7 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
       return options[field.key]?.find((o) => o.value === value)?.label ?? String(value);
     }
     if (field.type === "boolean") return value ? "Yes" : "No";
+    if (Array.isArray(value)) return value.join(", ");
     return String(value);
   }
 

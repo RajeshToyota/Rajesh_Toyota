@@ -8,7 +8,8 @@ export type FieldType =
   | "boolean"
   | "date"
   | "select"
-  | "foreign_key";
+  | "foreign_key"
+  | "text_array";
 
 export interface FieldConfig {
   key: string;
@@ -124,7 +125,7 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
         orderBy: "valid_from",
         fields: [
           { key: "model_id", label: "Model", type: "foreign_key", foreignTable: "models", required: true },
-          { key: "suffix_scope", label: "Suffix Scope (blank = all)", type: "text" },
+          { key: "suffix_scope_list", label: "Suffix Scope (comma-separated codes, blank = all)", type: "text_array" },
           { key: "name", label: "Name", type: "text", required: true },
           { key: "valid_from", label: "Valid From", type: "date", required: true },
           { key: "valid_to", label: "Valid To", type: "date", required: true },
