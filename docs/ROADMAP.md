@@ -35,7 +35,19 @@ This plan extends the existing codebase. It does not replace it.
 - Welcome Docket (40 pages)
 - Camry TGA/TGLOSS accessories order form
 
-The physical stock sheet is still to come. The Physical stock importer's column mapping gets finalised once it arrives.
+**Second batch (received 24 Oct):**
+- **CTDMS Stock Statement – Physical Stock** (PDF, 173 vehicles: 152 Free, 15 Blocked, 6 Alloted). Same columns as Transit, plus Key No., Order No./Date, Order Status (Booked/Accepted/Invoiced), Amount Received, Finance Company, Likely Delivery, Location.
+- **TGA accessory order forms** for 11 models: Glanza, Hyryder, Taisor, Rumion, Crysta, Hycross, Fortuner, Camry, LC, Vellfire. Each lists S.No, category, accessory, part no. and MRP, with a TGLOSS packages page.
+- **Price lists 2026:**
+  - Private, Commercial and CSD lists, each per suffix with dual-tone rows. Columns: Ex-showroom, TCS, Road Tax & Registration, Insurance (Advance / Premium / Premium 3+3), FASTag, On-road, True Warranty 5th yr, TGLOSS.
+  - The T-Secure extended warranty matrix (by model × vehicle age × km).
+  - The **All Model Suffix & Colour Code** sheet, with old → new suffix and colour code → name.
+
+**Decisions added 24 Oct:**
+- **Quote prices come straight from the dealer price lists.** RTO and the three insurance options are not calculated by formula.
+- **Our CRM decides allotment.** CTDMS is told via a "Block in CTDMS" to-do, and each stock upload flags any mismatches.
+
+Employee data and the booking dump are coming in the next phase.
 
 ---
 
@@ -96,7 +108,12 @@ Parallel track when mode_of_purchase = in-house finance: FINANCE CASE (login →
 
 ### M3. Staged quotation (mobile builds, approvers act on mobile or dashboard)
 - **Quote versions.** Add `quote_versions` (quote_id, `stage` = `basic` | `with_schemes` | `with_dealer_discount` | `final`, snapshot, total, dealer_margin, approval_id, created_by). `quotes` gets `current_stage` and `enquiry_id`.
-- **Stage 1 – Basic:** ex-showroom, TCS, RTO, insurance, **FASTag**, accessories and VAS. This is the existing `calculate_price()` with no scheme IDs. FASTag is added as a `fixed_charges` master, or a VAS with `is_mandatory`.
+- **Stage 1 – Basic:** ex-showroom, TCS, RTO, insurance, **FASTag**, accessories and VAS. This is the existing `calculate_price()` with no scheme IDs.
+  - **`price_list` becomes the full dealer list**, one row per variant × list type (`private` / `commercial` / `csd`) × effective date. Dual tone is either its own row or `variant_colors.extra_cost`.
+  - **Columns:** `ex_showroom_price`, `tcs`, `road_tax_registration`, `insurance_advance`, `insurance_premium`, `insurance_premium_3plus3`, `fastag`, `true_warranty_5yr`, `tgloss_package`.
+  - **`calculate_price()` reads these columns** instead of `rto_pricing` and the IDV formula. The SC picks the list type (from the registration type: White board = private, Yellow board = commercial, or CSD) and the insurance option (Advance / Premium / 3+3).
+  - **Fallbacks stay.** `tax_config` still drives TCS when the list leaves it blank, and the 5% rate under Section 206CCA becomes a per-customer flag. `rto_pricing` and the insurance tables stay as fallbacks.
+  - **Extended warranty.** A `ew_prices` table (model group × age band × product × km) holds the T-Secure matrix. At sale the age band is 0–2 months.
 - **Stage 2 – With company schemes.** The SC picks from the eligible scheme line items, then the Team Leader approves.
 - **Stage 3 – With additional dealer discount.**
   - Add a `dealer_discount` input to `calculate_price()`. It is customer-facing and reduces dealer margin.
@@ -110,7 +127,9 @@ Parallel track when mode_of_purchase = in-house finance: FINANCE CASE (login →
   - eligibility tags: rural pin, corporate (T-5000), loyalty (existing Toyota), referral
   - bulk slabs (5–9, 10–14, 15–25, >25)
   - The existing `mutually_exclusive_group` already covers "Sales Discount OR TFS subvention" and "Exchange OR Scrappage".
-- **Accessories master.** Add `category` (Hygiene / Styling / Utility) and `is_tga`. TGLOSS packages become VAS rows. Both match the Camry order form.
+- **Accessories master.** Add `category` (Functional / Beautification / Interior / Hygiene / Styling / Utility…), `is_tga`, `effective_from` and `sort_order`. Seed it from the 11 model order forms by part no. + model.
+  - **TGLOSS packages and the individual coatings** become model-specific VAS rows. Prices differ by model: e.g. Ceramic Plus is ₹47,453 on Camry and ₹55,203 on LC.
+  - **The printable per-model "TGA Accessories Order Form"** is generated from the master with the same layout: selected items, fitment status, and SO / SM / VAS lead sign-off. It is used again at delivery (M9).
 
 ### M4. Booking + digital Welcome Docket (mobile)
 - **Order Booking Form.** The existing `bookings` columns already mirror docket page 7 (PAN, DOB, nominee, mother's maiden name, company purchase, payment instrument, consent, signature). They get linked to `enquiry_id` and `customer_id`.
@@ -136,7 +155,18 @@ Parallel track when mode_of_purchase = in-house finance: FINANCE CASE (login →
   - CTDMS Stock Statement (Transit/All). We prefer the CTDMS Excel export. PDF parsing is a fallback via `pdf-parse`.
   - The physical stock sheet, with its column map set once that sheet is shared.
   - Upsert is on VIN. The two sources merge when a transit car arrives and moves to `in_stock`.
-- **Code mapping.** Stock and enquiry files use TKM codes (e.g. suffix `D22U4`, colour `089`/`WBF`). We add `variants.tkm_suffix_code` and `colors.tkm_color_code`. Unmapped codes show up in an import "Fix mapping" list.
+- **Code mapping.** Stock and enquiry files use TKM codes (e.g. suffix `D22U4`, colour `089`/`WBF`). We add `variants.tkm_suffix_code` (plus `old_suffix_code`) and `colors.tkm_color_code`.
+  - Both are **seeded from the "All Model Suffix & Colour Code" sheet**. The model prefix + new suffix makes the full code: FRN + 1L = `FRN1L`, D22 + U4 = `D22U4`.
+  - Unmapped codes show up in an import "Fix mapping" list.
+- **CTDMS columns we keep.** The physical stock report also carries Key No., Block status (Free / Blocked / Alloted), Order No./Date, Order Status, Amount Received, Finance Company, Likely Delivery and Location. They are stored as `ctdms_*` fields on `vehicles`.
+- **Our CRM decides allotment:**
+  - Every allot or swap in our CRM adds a row to a **"Block / Unblock in CTDMS" to-do** with a Done button, the same pattern as M2.
+  - Each stock upload compares CTDMS block status and order no. with our allotment. Differences go to a **Mismatch** list: blocked in CTDMS but free with us, or blocked for a different order.
+  - **First import:** CTDMS Blocked/Alloted cars are proposed as allotments to the matching bookings (by order no.) once the booking dump is loaded.
+- **PDF parsing.** The CTDMS PDFs are fixed-layout. The parser uses `pdftotext -layout`-style text extraction via `pdfjs-dist` in a server action:
+  - It anchors each row on the VIN pattern (17 chars, optional `~MMYY` suffix) and splits multi-line model names such as "URBAN CRUISER / HYRYDER".
+  - It's tested against both shared files: 31 transit and 173 physical vehicles.
+  - The Excel export is still preferred if CTDMS offers it.
 - **New `allotments` table:** booking_id, vehicle_id, `method` (`fifo` | `manual`), allotted_by, allotted_at, released_at, release_reason. There is a partial unique index so one vehicle has at most one active allotment.
 - **Three views:**
   1. **Free Stock.** Unallotted vehicles, grouped model → suffix → colour. Shows ageing (days since TKM invoice) and interest cost, so old stock gets pushed first.
@@ -202,6 +232,7 @@ Parallel track when mode_of_purchase = in-house finance: FINANCE CASE (login →
 
 | Phase | Scope | Main files |
 |---|---|---|
+| 6a | **Master data load from shared files.** Dashboard importers that the back office can re-run when TKM revises lists: models/variants/colours from the Suffix & Colour Code sheet, price lists (Private / Commercial / CSD, all models), EW matrix, TGA accessories + TGLOSS for 11 models | price_list + `ew_prices` migrations, `dashboard/src/app/(app)/admin/price-list/import/*` (extend), new `admin/accessories/import`, `dashboard/src/lib/pdf-table.ts` |
 | 6 | TKM code mapping, scheme schema upgrades, FASTag, `customers` + `enquiries`, mobile New Enquiry, dashboard enquiry list | new `supabase/migrations/2026102x_*.sql`, `calculate_price` update, `mobile/app/(app)/enquiries/*`, `dashboard/src/app/(app)/enquiries/*`, `dashboard/src/lib/entities.ts` |
 | 7 | CTDMS daily sync (enquiries + bookings queues, Done button) | `dashboard/src/app/(app)/crm-sync/*`, `dashboard/src/lib/ctdms-import.ts` |
 | 8 | Staged quotes + stage approvals | `quote_versions` migration, `mobile/app/(app)/quotes/*`, `mobile/lib/approvals.ts`, `dashboard/.../reports/approvals/*` |
@@ -236,7 +267,8 @@ Parallel track when mode_of_purchase = in-house finance: FINANCE CASE (login →
   enquiry → sync → 4-stage quote with approvals → booking + docket PDF → import stock → FIFO allot → swap customer → bill → finance DO → receipts → insurance/RTO → deliver; plus a hold and a cancel path.
 
 ## 5. Open items (don't block Phase 6–9)
-- Physical stock sheet format, to be shared next.
+- Employee data and the booking dump are coming next. They will seed `employees` (with `ctdms_sales_officer_name`) and the open bookings, and those bookings get linked to the 21 CTDMS-blocked/allotted cars.
+- Price list PDFs vary slightly per model (merged cells, dual-tone rows). Each import shows a preview to confirm before saving, and any rows it can't parse are listed for manual entry.
 - Can CTDMS export the Stock Statement as Excel? That would avoid PDF parsing.
 - The amount threshold where Outlet Head approval hands over to Business Head for dealer discount. This is master data, settable in Approval Rules.
 - The real IDV depreciation slabs. The current ones are placeholders, per the comment in `20260917000006_insurance.sql`.
