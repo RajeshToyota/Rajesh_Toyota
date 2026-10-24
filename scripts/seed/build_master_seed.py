@@ -110,6 +110,14 @@ MODEL_COLORS = {
 }
 
 
+# Variants offered in a fixed colour set regardless of the model list (Camry Sprint comes only in its
+# dual tones, priced as standard).
+VARIANT_COLORS = {
+    "CMRCM": ["089", "218", "1L5", "3U5", "8X8", "1H5"],
+    "CMRCS": ["08B", "1LB", "3UB", "8XB", "1HB"],
+}
+
+
 def paint_of(code):
     if code in PEARL_WHITE:
         return "pearl_white"
@@ -513,11 +521,11 @@ where not exists (select 1 from variants x where x.tkm_suffix_code = s.code);"""
     vc_rows = []
     for code in sorted(variants):
         priced = paints_by_code.get(code)
-        for c in MODEL_COLORS[variants[code]["prefix"]]:
-            if priced and paint_of(c) == "dual_tone" and "dual_tone" not in priced:
-                continue
-            vc_rows.append([code, c])
-    out.append("create temp table seed_variant_colors (code text, color text) on commit drop;")
+        colors = VARIANT_COLORS.get(code) or [
+            c for c in MODEL_COLORS[variants[code]["prefix"]]
+            if not (priced and paint_of(c) == "dual_tone" and "dual_tone" not in priced)]
+        vc_rows.append([code, "{" + ",".join(colors) + "}"])
+    out.append("create temp table seed_variant_colors (code text, colors text[]) on commit drop;")
     out.append("insert into seed_variant_colors values\n  " + values(vc_rows) + ";")
     out.append("""delete from variant_colors vc
 using variants v
@@ -525,8 +533,9 @@ where vc.variant_id = v.id and v.tkm_suffix_code in (select code from seed_varia
     out.append("""insert into variant_colors (variant_id, color_id, extra_cost)
 select v.id, c.id, 0
 from seed_variant_colors s
+cross join lateral unnest(s.colors) as sc(color)
 join variants v on v.tkm_suffix_code = s.code
-join colors c on c.tkm_color_code = s.color
+join colors c on c.tkm_color_code = sc.color
 on conflict (variant_id, color_id) do nothing;""")
 
     out.append("\n-- Price list (Rajasthan). Per-colour ex-showroom-only rows for these variants are closed: the")
