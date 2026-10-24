@@ -8,6 +8,6 @@ dropdb --if-exists "$db"
 createdb "$db"
 psql -q -v ON_ERROR_STOP=1 -d "$db" -f scripts/localdb/supabase_stubs.sql
 for f in supabase/migrations/*.sql; do
-  psql -q -v ON_ERROR_STOP=1 -d "$db" -f "$f" >/dev/null || { echo "FAILED: $f"; exit 1; }
+  psql -q -1 -v ON_ERROR_STOP=1 -d "$db" -f "$f" >/dev/null || { echo "FAILED: $f"; exit 1; }
 done
 echo "Applied $(ls supabase/migrations/*.sql | wc -l) migrations to $db"

@@ -5,7 +5,7 @@
 -- first time) are kept and coded rather than duplicated.
 
 -- Models
-create temp table seed_models (prefix text primary key, name text, segment text, aliases text[], new_id uuid);
+create temp table seed_models (prefix text primary key, name text, segment text, aliases text[], new_id uuid) on commit drop;
 insert into seed_models values
   ('FRN', 'Fortuner', 'SUV', array['fortuner']::text[], '988677c2-4295-50b4-a057-30733c75625f'),
   ('IMV', 'Innova Crysta', 'MUV', array['innova crysta', 'innova']::text[], 'c6e56389-d8e1-5ce2-ab20-eb1fa8b59bf9'),
@@ -28,7 +28,7 @@ select new_id, name, segment, prefix from seed_models s
 where not exists (select 1 from models x where x.tkm_model_code = s.prefix);
 
 -- Colours (an existing colour with the same name gets the code; the most-used one if duplicated)
-create temp table seed_colors (code text primary key, name text, hex text, paint text, aliases text[], new_id uuid);
+create temp table seed_colors (code text primary key, name text, hex text, paint text, aliases text[], new_id uuid) on commit drop;
 insert into seed_colors values
   ('040', 'Super White', '#F4F4F2', 'standard', array['super white']::text[], 'd0f8d8f6-195f-564e-8d96-47311d41a92b'),
   ('089', 'Platinum White Pearl', '#F2F0EA', 'pearl_white', array['platinum white pearl']::text[], 'a251a2a2-7da0-519f-9c6f-8516f6553dfd'),
@@ -90,7 +90,7 @@ select new_id, name, hex, paint = 'dual_tone', code, paint from seed_colors s
 where not exists (select 1 from colors x where x.tkm_color_code = s.code);
 
 -- Variants (suffix and tkm_suffix_code both hold the full CTDMS code, e.g. D22U4)
-create temp table seed_variants (code text primary key, prefix text, name text, fuel text, transmission text, new_id uuid);
+create temp table seed_variants (code text primary key, prefix text, name text, fuel text, transmission text, new_id uuid) on commit drop;
 insert into seed_variants values
   ('A15M1', 'A15', 'Rumion S MT (M1)', 'CNG', 'MT', 'bf856dc0-545b-5a22-949c-6f21c313fdbd'),
   ('A15MA', 'A15', 'Rumion V AT (MA)', 'Petrol', 'AT', '2b790979-c3c9-5331-8091-6f94ef46e62d'),
@@ -216,7 +216,7 @@ where not exists (select 1 from variants x where x.tkm_suffix_code = s.code);
 
 -- Variant colours: rebuilt for every seeded variant from the model's TKM colour list,
 -- keeping a paint only where the variant's price list prices it (pearl white falls back to standard).
-create temp table seed_variant_colors (code text, color text);
+create temp table seed_variant_colors (code text, color text) on commit drop;
 insert into seed_variant_colors values
   ('A15M1', 'ZHJ'),
   ('A15M1', 'WBE'),
@@ -919,7 +919,7 @@ update price_list p set effective_to = greatest(p.effective_from, date '2026-10-
 from variants v
 where p.variant_id = v.id and v.tkm_suffix_code in (select code from seed_variants)
   and p.color_id is not null and p.source_file is null and p.effective_to is null;
-create temp table seed_prices (id uuid, code text, list_type text, paint text, ex numeric, tcs numeric, rto numeric, ins jsonb, fastag numeric, ew5 numeric, tgloss numeric, tga numeric, ess_kit numeric, smile numeric, onroad numeric, eff date, source text);
+create temp table seed_prices (id uuid, code text, list_type text, paint text, ex numeric, tcs numeric, rto numeric, ins jsonb, fastag numeric, ew5 numeric, tgloss numeric, tga numeric, ess_kit numeric, smile numeric, onroad numeric, eff date, source text) on commit drop;
 insert into seed_prices values
   ('cb74d9a0-b432-5a07-a554-9d6e7ca6e814', 'D22U6', 'private', 'standard', 1718000, 17180, 199975, '{"advance": 45245, "premium": 54236, "premium_3plus3": 102286}', 500, 24657, 13218, 52200, null, 10408, 1989891, '2026-07-02', 'HYRYDER PRIVATE NEW'),
   ('e351e0af-9ead-5e37-8d94-ad3b79d02b9e', 'D22U5', 'private', 'standard', 1924000, 19240, 223150, '{"advance": 48726, "premium": 58757, "premium_3plus3": 112527}', 500, 24657, 13218, 52200, null, 10408, 2225647, '2026-07-02', 'HYRYDER PRIVATE NEW'),
@@ -1142,7 +1142,7 @@ on conflict (id) do update set ex_showroom_price = excluded.ex_showroom_price, t
   on_road_listed = excluded.on_road_listed;
 
 -- TGA accessories (from the per-model order forms)
-create temp table seed_accessories (id uuid, prefix text, name text, part_no text, price numeric, category text, sort_order int);
+create temp table seed_accessories (id uuid, prefix text, name text, part_no text, price numeric, category text, sort_order int) on commit drop;
 insert into seed_accessories values
   ('ab18fee8-1687-5d1e-b627-5e31367d2bc1', 'D24', 'Door Visor Basic', 'P6162WC060', 1627, 'Functional Item', 1),
   ('c6ef2d30-e382-5da2-b48d-a74671a2cc7c', 'D24', 'Door Visor Premium', 'P6162WC070', 2270, 'Functional Item', 2),
@@ -1515,7 +1515,7 @@ from seed_accessories s join models m on m.tkm_model_code = s.prefix
 on conflict (id) do update set price = excluded.price, category = excluded.category, sort_order = excluded.sort_order, is_active = true;
 
 -- TGLOSS packages and coatings (per model)
-create temp table seed_vas (id uuid, prefix text, name text, price numeric);
+create temp table seed_vas (id uuid, prefix text, name text, price numeric) on commit drop;
 insert into seed_vas values
   ('5f8310ef-a6da-5055-a90e-5ca08ef4839e', 'D24', 'TGLOSS Ceramic Coating with 2 Boosters + Underbody, Silencer, Internal Panel Coating & Rat Repellent (Package)', 31115),
   ('664e2f7c-ca9c-5ed4-977a-ca8412a9d2e6', 'D24', 'TGLOSS Graphene Coating with 3 Boosters + Underbody, Silencer, Internal Panel Coating & Rat Repellent (Package)', 37180),
@@ -1703,7 +1703,7 @@ from seed_vas s join models m on m.tkm_model_code = s.prefix
 on conflict (id) do update set price = excluded.price, is_active = true;
 
 -- T-Secure extended warranty prices (incl. GST), wef 10 May 2026
-create temp table seed_ew (id uuid, model_group text, prefix text, lo int, hi int, product text, km int, price numeric);
+create temp table seed_ew (id uuid, model_group text, prefix text, lo int, hi int, product text, km int, price numeric) on commit drop;
 insert into seed_ew values
   ('77f1e631-df7a-5b8b-8637-9f01383f0df7', 'Innova Crysta- Diesel-MT', 'IMV', 0, 2, 'true_warranty_4th_year', 100000, 26440),
   ('defa1d8e-0a43-507c-89f6-67d480527667', 'Innova Crysta- Diesel-MT', 'IMV', 0, 2, 'true_warranty_5th_year', 100000, 31106),
@@ -2317,5 +2317,3 @@ insert into ew_prices (id, model_group, model_id, min_age_months, max_age_months
 select s.id, s.model_group, m.id, s.lo, s.hi, s.product, s.km, s.price, date '2026-05-10'
 from seed_ew s left join models m on m.tkm_model_code = s.prefix
 on conflict (id) do update set price = excluded.price;
-
-drop table seed_models, seed_colors, seed_variants, seed_variant_colors, seed_prices, seed_accessories, seed_vas, seed_ew;

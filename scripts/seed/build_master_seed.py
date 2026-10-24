@@ -457,7 +457,7 @@ def main():
                      "A32": ["ebella", "toyota urban cruiser ebella"], "CMR": ["camry hybrid", "new camry"],
                      "LCR": ["land cruiser", "lc 300"], "VEL": ["vellfire hybrid"], "IMV": ["innova"]}
     out.append("-- Models")
-    out.append("create temp table seed_models (prefix text primary key, name text, segment text, aliases text[], new_id uuid);")
+    out.append("create temp table seed_models (prefix text primary key, name text, segment text, aliases text[], new_id uuid) on commit drop;")
     out.append("insert into seed_models values\n  " + values(
         [[p, m[0], m[1], [m[0].lower()] + model_aliases.get(p, []), uid("model", p)] for p, m in MODELS.items()]) + ";")
     out.append("""update models m set tkm_model_code = s.prefix
@@ -471,7 +471,7 @@ where not exists (select 1 from models x where x.tkm_model_code = s.prefix);""")
     color_aliases = {"218": ["attitude black mc", "attitude black mica"], "221": ["blackish ageha gf"],
                      "2PS": ["whitepearl & a.black"], "2UE": ["superwhite & a.black"]}
     out.append("\n-- Colours (an existing colour with the same name gets the code; the most-used one if duplicated)")
-    out.append("create temp table seed_colors (code text primary key, name text, hex text, paint text, aliases text[], new_id uuid);")
+    out.append("create temp table seed_colors (code text primary key, name text, hex text, paint text, aliases text[], new_id uuid) on commit drop;")
     out.append("insert into seed_colors values\n  " + values(
         [[c, n, h, paint_of(c), [n.lower()] + color_aliases.get(c, []), uid("color", c)] for c, (n, h) in COLORS.items()]) + ";")
     out.append("""update colors c set tkm_color_code = m.code, paint_category = m.paint, is_dual_tone = (m.paint = 'dual_tone'),
@@ -489,7 +489,7 @@ select new_id, name, hex, paint = 'dual_tone', code, paint from seed_colors s
 where not exists (select 1 from colors x where x.tkm_color_code = s.code);""")
 
     out.append("\n-- Variants (suffix and tkm_suffix_code both hold the full CTDMS code, e.g. D22U4)")
-    out.append("create temp table seed_variants (code text primary key, prefix text, name text, fuel text, transmission text, new_id uuid);")
+    out.append("create temp table seed_variants (code text primary key, prefix text, name text, fuel text, transmission text, new_id uuid) on commit drop;")
     out.append("insert into seed_variants values\n  " + values(
         [[code, v["prefix"], f"{MODELS[v['prefix']][0]} {v['name']} ({code[3:]})", v["fuel"], v["transmission"], uid("variant", code)]
          for code, v in sorted(variants.items())]) + ";")
@@ -517,7 +517,7 @@ where not exists (select 1 from variants x where x.tkm_suffix_code = s.code);"""
             if priced and paint_of(c) == "dual_tone" and "dual_tone" not in priced:
                 continue
             vc_rows.append([code, c])
-    out.append("create temp table seed_variant_colors (code text, color text);")
+    out.append("create temp table seed_variant_colors (code text, color text) on commit drop;")
     out.append("insert into seed_variant_colors values\n  " + values(vc_rows) + ";")
     out.append("""delete from variant_colors vc
 using variants v
@@ -546,7 +546,7 @@ where p.variant_id = v.id and v.tkm_suffix_code in (select code from seed_varian
                      r.get("onroad"), r["eff"], r["source"]])
     out.append("create temp table seed_prices (id uuid, code text, list_type text, paint text, ex numeric, tcs numeric, rto numeric, "
                "ins jsonb, fastag numeric, ew5 numeric, tgloss numeric, tga numeric, ess_kit numeric, smile numeric, onroad numeric, "
-               "eff date, source text);")
+               "eff date, source text) on commit drop;")
     out.append("insert into seed_prices values\n  " + values(rows) + ";")
     out.append("""update price_list p set effective_to = s.eff - 1
 from seed_prices s join variants v on v.tkm_suffix_code = s.code
@@ -566,7 +566,7 @@ on conflict (id) do update set ex_showroom_price = excluded.ex_showroom_price, t
   on_road_listed = excluded.on_road_listed;""")
 
     out.append("\n-- TGA accessories (from the per-model order forms)")
-    out.append("create temp table seed_accessories (id uuid, prefix text, name text, part_no text, price numeric, category text, sort_order int);")
+    out.append("create temp table seed_accessories (id uuid, prefix text, name text, part_no text, price numeric, category text, sort_order int) on commit drop;")
     out.append("insert into seed_accessories values\n  " + values(
         [[uid("acc", a["prefix"], a["part_no"], a["name"]), a["prefix"], a["name"], a["part_no"], a["price"], a["category"], a["sno"]]
          for a in accessories]) + ";")
@@ -576,7 +576,7 @@ from seed_accessories s join models m on m.tkm_model_code = s.prefix
 on conflict (id) do update set price = excluded.price, category = excluded.category, sort_order = excluded.sort_order, is_active = true;""")
 
     out.append("\n-- TGLOSS packages and coatings (per model)")
-    out.append("create temp table seed_vas (id uuid, prefix text, name text, price numeric);")
+    out.append("create temp table seed_vas (id uuid, prefix text, name text, price numeric) on commit drop;")
     out.append("insert into seed_vas values\n  " + values([[uid("vas", p["prefix"], p["name"]), p["prefix"], p["name"], p["price"]] for p in vas]) + ";")
     out.append("""insert into vas_products (id, name, pricing_type, price, model_id, category)
 select s.id, s.name, 'flat', s.price, m.id, 'TGLOSS'
@@ -584,7 +584,7 @@ from seed_vas s join models m on m.tkm_model_code = s.prefix
 on conflict (id) do update set price = excluded.price, is_active = true;""")
 
     out.append("\n-- T-Secure extended warranty prices (incl. GST), wef 10 May 2026")
-    out.append("create temp table seed_ew (id uuid, model_group text, prefix text, lo int, hi int, product text, km int, price numeric);")
+    out.append("create temp table seed_ew (id uuid, model_group text, prefix text, lo int, hi int, product text, km int, price numeric) on commit drop;")
     out.append("insert into seed_ew values\n  " + values(
         [[uid("ew", e["group"], e["lo"], e["product"], e["km"]), e["group"], e["prefix"], e["lo"], e["hi"], e["product"], e["km"], e["price"]]
          for e in ew]) + ";")
@@ -593,7 +593,8 @@ select s.id, s.model_group, m.id, s.lo, s.hi, s.product, s.km, s.price, date '20
 from seed_ew s left join models m on m.tkm_model_code = s.prefix
 on conflict (id) do update set price = excluded.price;""")
 
-    out.append("\ndrop table seed_models, seed_colors, seed_variants, seed_variant_colors, seed_prices, seed_accessories, seed_vas, seed_ew;")
+    # Temp tables are "on commit drop": this file must run as one transaction (Supabase migrations do;
+    # locally scripts/localdb/apply.sh uses psql --single-transaction).
 
     with open(args.out, "w") as f:
         f.write("\n".join(out) + "\n")

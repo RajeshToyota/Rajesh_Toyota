@@ -350,10 +350,7 @@ $$;
 grant execute on function calculate_price(jsonb) to authenticated;
 
 -- ===== Server-side recompute: carry the new selections through =====
-drop trigger trg_quotes_recompute_pricing on quotes;
-drop trigger trg_bookings_recompute_pricing on bookings;
-drop function build_pricing_selections(uuid, uuid, uuid, uuid, uuid, uuid, uuid[], uuid[], uuid[], uuid[]);
-
+-- The 10-argument build_pricing_selections overload from 20260917000019 is left in place (unused).
 create or replace function build_pricing_selections(
   p_variant_id uuid, p_color_id uuid, p_outlet_id uuid, p_rto_category_id uuid,
   p_scrap_certificate_id uuid, p_insurance_plan_id uuid, p_insurance_addon_ids uuid[],
@@ -459,7 +456,7 @@ begin
 end;
 $$;
 
-create trigger trg_quotes_recompute_pricing
+create or replace trigger trg_quotes_recompute_pricing
   before insert or update of
     variant_id, color_id, outlet_id, rto_category_id, scrap_certificate_id,
     insurance_plan_id, insurance_addon_ids, accessory_ids, vas_product_ids,
@@ -467,7 +464,7 @@ create trigger trg_quotes_recompute_pricing
   on quotes
   for each row execute function quotes_recompute_pricing();
 
-create trigger trg_bookings_recompute_pricing
+create or replace trigger trg_bookings_recompute_pricing
   before insert or update of
     variant_id, color_id, outlet_id, rto_category_id, scrap_certificate_id,
     insurance_plan_id, insurance_addon_ids, accessory_ids, vas_product_ids,

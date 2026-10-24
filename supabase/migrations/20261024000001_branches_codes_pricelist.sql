@@ -68,8 +68,7 @@ alter table price_list
   add constraint price_list_list_type_check check (list_type in ('private', 'commercial', 'csd')),
   add constraint price_list_paint_category_check check (paint_category in ('standard', 'pearl_white', 'dual_tone')),
   add constraint price_list_color_or_paint check (color_id is not null or paint_category is not null);
-drop index if exists idx_price_list_lookup;
-create index idx_price_list_lookup on price_list(variant_id, state, list_type, effective_from, effective_to);
+create index idx_price_list_list_lookup on price_list(variant_id, state, list_type, effective_from, effective_to);
 
 -- ===== Extended warranty (T-Secure) customer price matrix =====
 create table ew_prices (
