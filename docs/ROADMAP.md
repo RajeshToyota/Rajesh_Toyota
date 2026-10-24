@@ -65,6 +65,31 @@ This plan extends the existing codebase. It does not replace it.
 - **Employees are created from the booking dump for now.** That means 30 SOs and 6 TLs at their branch, with SO → TL reporting. The full employee sheet will enrich them later. The employee file was not attached, so it still needs to be sent.
 - **Only orders with status Booked or Accepted are imported** as open bookings.
 
+## Phase 6 — status: built (25 Oct), not yet live
+
+Built and tested on local Postgres. It goes live together with Phase 6a.
+
+- **Migration:** `20261025000001_customers_enquiries.sql`.
+  - New tables: `customers` (one per mobile number) and `enquiries`.
+  - New links: `quotes.enquiry_id` and `bookings.enquiry_id` / `customer_id`.
+  - RPCs: `create_enquiry`, `find_customer`, `reassign_enquiry` and `mark_enquiry_lost`.
+  - Triggers move an enquiry to quoted or booked.
+- **Who sees and assigns what:**
+  - A Sales Consultant sees only their own enquiries and customers.
+  - A Team Leader and above sees their team's, and can assign and reassign within it.
+  - `find_customer` warns about an open enquiry with another consultant without revealing the details.
+- **Mobile:**
+  - New Enquiry, a 4-step wizard that starts with the mobile number and spots returning customers.
+  - My Enquiries, with stage filters, Make Quote and Mark lost.
+  - A quote started from an enquiry is prefilled with the customer, model and fuel, and stays linked
+    through to booking.
+- **Dashboard:**
+  - `/enquiries`: filters for branch, SC, date, stage, mode and Toyota-CRM status, plus inline
+    reassign and mark lost.
+  - `/enquiries/new`: the reception-desk form.
+- **Tests:** `supabase/tests/enquiries.sql` covers dedupe, assignment rules, RLS run as real roles,
+  and stage changes.
+
 ## Phase 6a build — status: built (24 Oct)
 
 Built and verified on a local Postgres. **Not yet applied to Supabase.** Re-runnable *dashboard*

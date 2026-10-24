@@ -119,6 +119,7 @@ export default function ProceedToBookingScreen() {
 
       const { bookingId, approvalNeeded, approvalRoleName } = await confirmBooking({
         quoteId: quote.id,
+        enquiryId: quote.enquiry_id ?? null,
         outletId: employee.outletId!,
         employeeId: employee.id,
         selections,

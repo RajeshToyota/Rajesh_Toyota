@@ -13,7 +13,9 @@ export default function HomeScreen() {
   }, []);
 
   const actions = [
-    { href: "/(app)/quotes/new" as const, label: "New Quote", description: "Build and share a vehicle quotation" },
+    { href: "/(app)/enquiries/new" as const, label: "New Enquiry", description: "Capture a walk-in, call or lead — the start of every sale" },
+    { href: "/(app)/enquiries" as const, label: "My Enquiries", description: "Follow up, quote, or close your enquiries" },
+    { href: "/(app)/quotes/new" as const, label: "Quick Quote", description: "Price a vehicle without an enquiry" },
     { href: "/(app)/quotes" as const, label: "My Quotes", description: "View quotes you've created" },
     { href: "/(app)/bookings/new" as const, label: "New Booking", description: "Book a vehicle directly, no prior quote needed" },
     { href: "/(app)/bookings" as const, label: "My Bookings", description: "View bookings you've created" },

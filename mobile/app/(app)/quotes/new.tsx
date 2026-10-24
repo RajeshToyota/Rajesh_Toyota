@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, TextInput, Alert, ActivityIndicator } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/auth-context";
 import { WizardShell } from "@/components/wizard-shell";
@@ -25,6 +25,7 @@ const STEP_TITLES = ["Customer", ...VEHICLE_STEP_TITLES, "Summary", "Share"];
 
 export default function NewQuoteScreen() {
   const { employee } = useAuth();
+  const { enquiryId } = useLocalSearchParams<{ enquiryId?: string }>();
   const [step, setStep] = useState(0);
 
   const [customerName, setCustomerName] = useState("");
@@ -32,6 +33,27 @@ export default function NewQuoteScreen() {
   const [customerMobile, setCustomerMobile] = useState("");
 
   const vs = useVehicleSelection(employee?.outletState ?? "Rajasthan");
+
+  // Started from an enquiry: carry over the customer and the model/fuel they asked about.
+  const { setModelId, setFuelTypeId } = vs;
+  useEffect(() => {
+    if (!enquiryId) return;
+    supabase
+      .from("enquiries")
+      .select("model_id, fuel_type_id, customers(name, mobile)")
+      .eq("id", enquiryId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        const customer: any = Array.isArray(data.customers) ? data.customers[0] : data.customers;
+        if (customer) {
+          setCustomerName(customer.name);
+          setCustomerMobile(customer.mobile);
+        }
+        setModelId(data.model_id);
+        if (data.fuel_type_id) setFuelTypeId(data.fuel_type_id);
+      });
+  }, [enquiryId, setModelId, setFuelTypeId]);
 
   const [pricing, setPricing] = useState<PricingResult | null>(null);
   const [pricingError, setPricingError] = useState<string | null>(null);
@@ -64,6 +86,7 @@ export default function NewQuoteScreen() {
           customer_name: customerName,
           customer_phone: customerPhone || null,
           customer_mobile: customerMobile || null,
+          enquiry_id: enquiryId ?? null,
           variant_id: vs.variantId,
           color_id: vs.colorId,
           rto_category_id: vs.rtoCategoryId,

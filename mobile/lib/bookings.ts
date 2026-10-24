@@ -11,6 +11,7 @@ import type { BookingForm } from "@/hooks/use-booking-form";
 // must clear the pending approval before the booking can move past `booked` (allocated/delivered).
 export async function confirmBooking(params: {
   quoteId?: string;
+  enquiryId?: string | null;
   outletId: string;
   employeeId: string;
   selections: QuoteSelections;
@@ -25,6 +26,7 @@ export async function confirmBooking(params: {
     .from("bookings")
     .insert({
       quote_id: params.quoteId ?? null,
+      enquiry_id: params.enquiryId ?? null,
       outlet_id: params.outletId,
       employee_id: params.employeeId,
       order_booking_no: params.orderBookingNo ?? null,

@@ -31,6 +31,8 @@ export default function AppLayout() {
   return (
     <Stack screenOptions={{ headerShown: true, headerBackTitle: "Back" }}>
       <Stack.Screen name="index" options={{ title: "Rajesh Toyota" }} />
+      <Stack.Screen name="enquiries/index" options={{ title: "My Enquiries" }} />
+      <Stack.Screen name="enquiries/new" options={{ title: "New Enquiry" }} />
       <Stack.Screen name="quotes/index" options={{ title: "My Quotes" }} />
       <Stack.Screen name="quotes/new" options={{ title: "New Quote" }} />
       <Stack.Screen name="bookings/index" options={{ title: "My Bookings" }} />

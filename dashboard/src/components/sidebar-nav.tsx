@@ -6,6 +6,13 @@ import { entityGroups } from "@/lib/entities";
 
 const extraLinks: { title: string; links: { href: string; label: string }[] }[] = [
   {
+    title: "Sales",
+    links: [
+      { href: "/enquiries", label: "Enquiries" },
+      { href: "/enquiries/new", label: "New Enquiry" },
+    ],
+  },
+  {
     title: "Reporting",
     links: [
       { href: "/reports/quotes", label: "Quotes" },
