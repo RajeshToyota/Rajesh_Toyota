@@ -26,6 +26,9 @@ export interface PricingResult {
   rto_amount: number;
   scrap_amount: number;
   insurance_amount: number;
+  fastag_amount?: number;
+  extended_warranty_amount?: number;
+  on_road_listed?: number | null;
   accessories_amount: number;
   vas_amount: number;
   total_amount: number;
@@ -34,11 +37,16 @@ export interface PricingResult {
   priced_as_of: string;
 }
 
+export type PriceListType = "private" | "commercial" | "csd";
+
 export interface QuoteSelections {
   variant_id: string;
   color_id: string;
   state: string;
   rto_category_id: string;
+  list_type?: PriceListType;
+  insurance_option?: string | null;
+  include_extended_warranty?: boolean;
   scrap?: { source: "Rajesh Toyota" | "Self"; amount: number } | null;
   insurance_plan_id?: string | null;
   insurance_addon_ids?: string[];
