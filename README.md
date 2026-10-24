@@ -14,6 +14,7 @@ ever revisited.
 - `supabase/migrations/` — versioned SQL migrations (schema, RLS, seed data)
 - `supabase/functions/` — Edge Functions (added in Phase 1: `price-quote`)
 - `dashboard/` — Next.js admin dashboard (added in Phase 2)
+- `docs/ROADMAP.md` — full enquiry-to-delivery plan (Phases 6–15)
 - `mobile/` — Expo mobile app (added in Phase 3+)
 
 ## Core design principle
