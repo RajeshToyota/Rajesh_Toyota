@@ -7,3 +7,4 @@ dist/
 *.log
 mobile/.claude/
 data/private/
+__pycache__/
