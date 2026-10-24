@@ -5,6 +5,7 @@
 --   "insurance_option": "advance" | "premium" | "premium_3plus3" | "luxury"   (falls back to insurance_plan_id)
 --   "include_extended_warranty": boolean
 -- rto_category_id is now only needed when the list has no Road Tax & Registration amount.
+-- Built on the 20260918000004 version (suffix_scope_list, insurance_pricing, margin rules).
 
 create or replace function calculate_price(selections jsonb)
 returns jsonb
@@ -57,6 +58,7 @@ declare
   v_coverage_type text;
   v_dep numeric;
   v_base_premium numeric;
+  v_variant_premium numeric;
   rec record;
 begin
   if v_variant_id is null or v_color_id is null or v_state is null then
@@ -141,7 +143,7 @@ begin
       join schemes s on s.id = sli.scheme_id
       where sli.id = sid
         and s.model_id = v_model_id
-        and (s.suffix_scope is null or s.suffix_scope = v_suffix)
+        and (s.suffix_scope_list is null or v_suffix = any(s.suffix_scope_list))
         and s.valid_from <= v_as_of_date and s.valid_to >= v_as_of_date
     )
   ) then
@@ -157,23 +159,25 @@ begin
     if rec.is_customer_facing then
       v_scheme_discount := v_scheme_discount + rec.tkm_share + rec.dealer_share;
       v_line_items := v_line_items || jsonb_build_array(jsonb_build_object('type','scheme_discount','label',rec.line_type,'amount', -(rec.tkm_share + rec.dealer_share)));
+      v_dealer_margin := v_dealer_margin + rec.dealer_share;
+    else
+      v_dealer_margin := v_dealer_margin + rec.tkm_share + rec.dealer_share;
     end if;
-    v_dealer_margin := v_dealer_margin + rec.dealer_share;
   end loop;
 
   -- Dealer-only line items on schemes applicable to this deal always contribute to margin,
   -- since they are never customer-selectable (not shown in the quote UI at all).
   for rec in
-    select sli.dealer_share
+    select sli.tkm_share, sli.dealer_share
     from scheme_line_items sli
     join schemes s on s.id = sli.scheme_id
     where sli.is_customer_facing = false
       and s.model_id = v_model_id
-      and (s.suffix_scope is null or s.suffix_scope = v_suffix)
+      and (s.suffix_scope_list is null or v_suffix = any(s.suffix_scope_list))
       and s.valid_from <= v_as_of_date and s.valid_to >= v_as_of_date
       and sli.id <> all(v_selected_scheme_ids)
   loop
-    v_dealer_margin := v_dealer_margin + rec.dealer_share;
+    v_dealer_margin := v_dealer_margin + rec.tkm_share + rec.dealer_share;
   end loop;
 
   -- 4. TCS, on (price - customer-facing discount), at the configured rate.
@@ -253,7 +257,17 @@ begin
       raise exception 'Unknown insurance_plan_id: %', v_insurance_plan_id;
     end if;
 
-    if v_basis = 'idv_percentage' then
+    select amount into v_variant_premium
+    from insurance_pricing
+    where insurance_plan_id = v_insurance_plan_id and state = v_state
+      and (variant_id = v_variant_id or (variant_id is null and model_id = v_model_id))
+      and effective_from <= v_as_of_date and (effective_to is null or effective_to >= v_as_of_date)
+    order by variant_id nulls last, effective_from desc
+    limit 1;
+
+    if v_variant_premium is not null then
+      v_base_premium := v_variant_premium;
+    elsif v_basis = 'idv_percentage' then
       select depreciation_percentage into v_dep from idv_slabs where min_age_months <= 0 and max_age_months >= 0 limit 1;
       v_dep := coalesce(v_dep, 0);
       v_idv := (v_ex_showroom + v_color_extra) * (1 - v_dep / 100);

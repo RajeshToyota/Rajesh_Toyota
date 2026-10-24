@@ -8,7 +8,7 @@ alter table outlets add column ctdms_dealer_code text;
 create unique index uq_outlets_ctdms_dealer_code on outlets(ctdms_dealer_code) where ctdms_dealer_code is not null;
 
 -- The Phase 0 seed's Jaipur outlet is the real Jaipur branch; Jodhpur was a placeholder.
-update outlets set name = 'Rajesh Toyota - Jaipur', ctdms_dealer_code = 'JP05A'
+update outlets set ctdms_dealer_code = 'JP05A'
 where id = '00000000-0000-0000-0002-000000000001';
 update outlets set is_active = false
 where id = '00000000-0000-0000-0002-000000000002';
@@ -40,9 +40,11 @@ create unique index uq_colors_tkm_color_code on colors(tkm_color_code) where tkm
 
 insert into fuel_types (id, name) values
   ('00000000-0000-0000-0004-000000000004', 'CNG'),
-  ('00000000-0000-0000-0004-000000000005', 'EV');
+  ('00000000-0000-0000-0004-000000000005', 'EV')
+on conflict do nothing;
 insert into transmissions (id, name) values
-  ('00000000-0000-0000-0005-000000000004', 'AMT');
+  ('00000000-0000-0000-0005-000000000004', 'AMT')
+on conflict do nothing;
 
 -- ===== Price list: the full dealer list =====
 -- One row per variant x list type x paint category (or x specific colour, for the legacy per-colour
@@ -100,16 +102,15 @@ alter table accessories
   add column sort_order int,
   add column effective_from date,
   add column is_active boolean not null default true;
+-- vas_products.model_id / variant_id were added in 20260918000002.
 alter table vas_products
-  add column model_id uuid references models(id),
   add column category text,
   add column is_active boolean not null default true;
-create index idx_vas_products_model_id on vas_products(model_id);
 
 -- Placeholder Phase 0 catalog rows are superseded by the real catalog in the seed migration.
 update variants set is_active = false where id in (
   '00000000-0000-0000-0007-000000000001', '00000000-0000-0000-0007-000000000002', '00000000-0000-0000-0007-000000000003');
-update accessories set is_active = false where part_no like 'ACC-%';
+update accessories set is_active = false, is_tga = false where part_no like 'ACC-%';
 update vas_products set is_active = false where model_id is null;
 
 -- ===== Quotes / bookings: price-list selections =====
