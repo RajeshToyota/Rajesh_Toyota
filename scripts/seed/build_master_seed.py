@@ -236,7 +236,7 @@ def infer_transmission(text):
         return "AT"
     if re.search(r"\b(MT|SMT|GMT|VMT|MANUAL)\b", t):
         return "MT"
-    return "AT"
+    return None
 
 
 def clean_variant_name(prefix, text):
@@ -415,14 +415,14 @@ def main():
                 desc = r["text"] + " " + r["section"]
                 if r["paint"] == "standard" or code not in variants:
                     variants[code] = {"prefix": prefix, "name": clean_variant_name(prefix, r["text"]),
-                                      "fuel": infer_fuel(prefix, desc), "transmission": infer_transmission(desc)}
+                                      "fuel": infer_fuel(prefix, desc), "transmission": infer_transmission(r["text"]) or infer_transmission(r["section"]) or "AT"}
                 price_rows.append({**r, "code": code, "list_type": list_type, "eff": eff, "source": stem})
         report.append(f"[{stem}] {len(rows)} rows")
 
     for code, desc in EXTRA_VARIANTS.items():
         if code not in variants:
             variants[code] = {"prefix": code[:3], "name": desc, "fuel": infer_fuel(code[:3], desc),
-                              "transmission": infer_transmission(desc)}
+                              "transmission": infer_transmission(desc) or "AT"}
 
     accessories, vas = [], []
     for stem, prefix in ACCESSORY_FORMS:
