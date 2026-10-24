@@ -521,7 +521,7 @@ where not exists (select 1 from variants x where x.tkm_suffix_code = s.code);"""
     out.append("insert into seed_variant_colors values\n  " + values(vc_rows) + ";")
     out.append("""delete from variant_colors vc
 using variants v
-where vc.variant_id = v.id and v.tkm_suffix_code in (select code from seed_variants);""")
+where vc.variant_id = v.id and v.tkm_suffix_code in (select code from seed_variant_colors);""")
     out.append("""insert into variant_colors (variant_id, color_id, extra_cost)
 select v.id, c.id, 0
 from seed_variant_colors s
@@ -531,31 +531,31 @@ on conflict (variant_id, color_id) do nothing;""")
 
     out.append("\n-- Price list (Rajasthan). Per-colour ex-showroom-only rows for these variants are closed: the")
     out.append("-- engine prefers a colour-specific row, and these lists price by paint category instead.")
-    out.append("""update price_list p set effective_to = greatest(p.effective_from, date '2026-10-23')
-from variants v
-where p.variant_id = v.id and v.tkm_suffix_code in (select code from seed_variants)
-  and p.color_id is not null and p.source_file is null and p.effective_to is null;""")
     cols = ["id", "code", "list_type", "paint", "ex", "tcs", "rto", "ins", "fastag", "ew5", "tgloss", "tga", "ess_kit",
             "smile", "onroad", "eff", "source"]
     rows = []
     for r in price_rows:
         ins = {INSURANCE_KEYS[k]: r[k] for k in INSURANCE_KEYS if r.get(k)}
-        rows.append([uid("price", r["code"], r["list_type"], r["paint"], r["eff"]), r["code"], r["list_type"], r["paint"],
+        rows.append([r["code"], r["list_type"], r["paint"],
                      r["ex"], r.get("tcs"), r.get("rto"), "{" + ", ".join(f'"{k}": {q(v)}' for k, v in ins.items()) + "}",
                      r.get("fastag"), r.get("ew5"), r.get("tgloss"), r.get("tga"), r.get("ess_kit"), r.get("smile"),
                      r.get("onroad"), r["eff"], r["source"]])
-    out.append("create temp table seed_prices (id uuid, code text, list_type text, paint text, ex numeric, tcs numeric, rto numeric, "
+    out.append("create temp table seed_prices (code text, list_type text, paint text, ex numeric, tcs numeric, rto numeric, "
                "ins jsonb, fastag numeric, ew5 numeric, tgloss numeric, tga numeric, ess_kit numeric, smile numeric, onroad numeric, "
                "eff date, source text) on commit drop;")
     out.append("insert into seed_prices values\n  " + values(rows) + ";")
+    out.append("""update price_list p set effective_to = greatest(p.effective_from, date '2026-10-23')
+from variants v
+where p.variant_id = v.id and v.tkm_suffix_code in (select code from seed_prices)
+  and p.color_id is not null and p.source_file is null and p.effective_to is null;""")
     out.append("""update price_list p set effective_to = s.eff - 1
 from seed_prices s join variants v on v.tkm_suffix_code = s.code
 where p.variant_id = v.id and p.list_type = s.list_type and p.paint_category = s.paint and p.color_id is null
-  and p.state = 'Rajasthan' and p.effective_from < s.eff and p.effective_to is null and p.id <> s.id;""")
+  and p.state = 'Rajasthan' and p.effective_from < s.eff and p.effective_to is null;""")
     out.append("""insert into price_list (id, variant_id, color_id, state, list_type, paint_category, ex_showroom_price, tcs_amount,
   road_tax_registration, insurance_options, fastag_amount, ew_5th_year_amount, tgloss_package_amount, tga_combo_amount,
   essential_kit_amount, smile_package_amount, on_road_listed, effective_from, source_file)
-select s.id, v.id, null, 'Rajasthan', s.list_type, s.paint, s.ex, s.tcs, s.rto, s.ins, s.fastag, s.ew5, s.tgloss, s.tga,
+select md5('price|' || s.code || '|' || s.list_type || '|' || s.paint || '|' || s.eff)::uuid, v.id, null, 'Rajasthan', s.list_type, s.paint, s.ex, s.tcs, s.rto, s.ins, s.fastag, s.ew5, s.tgloss, s.tga,
   s.ess_kit, s.smile, s.onroad, s.eff, s.source
 from seed_prices s join variants v on v.tkm_suffix_code = s.code
 on conflict (id) do update set ex_showroom_price = excluded.ex_showroom_price, tcs_amount = excluded.tcs_amount,
@@ -565,32 +565,49 @@ on conflict (id) do update set ex_showroom_price = excluded.ex_showroom_price, t
   essential_kit_amount = excluded.essential_kit_amount, smile_package_amount = excluded.smile_package_amount,
   on_road_listed = excluded.on_road_listed;""")
 
+    # Ids are md5 of the natural key, computed in SQL, so the file stays small enough to apply in pieces.
     out.append("\n-- TGA accessories (from the per-model order forms)")
-    out.append("create temp table seed_accessories (id uuid, prefix text, name text, part_no text, price numeric, category text, sort_order int) on commit drop;")
+    acc_rows = {(x["prefix"], x["part_no"], x["name"]): x for x in accessories}
+    out.append("create temp table seed_accessories (prefix text, name text, part_no text, price numeric, category text, sort_order int) on commit drop;")
     out.append("insert into seed_accessories values\n  " + values(
-        [[uid("acc", a["prefix"], a["part_no"], a["name"]), a["prefix"], a["name"], a["part_no"], a["price"], a["category"], a["sno"]]
-         for a in accessories]) + ";")
+        [[x["prefix"], x["name"], x["part_no"], x["price"], x["category"], x["sno"]] for x in acc_rows.values()]) + ";")
     out.append("""insert into accessories (id, model_id, name, part_no, price, category, is_tga, sort_order)
-select s.id, m.id, s.name, s.part_no, s.price, s.category, true, s.sort_order
+select md5('acc|' || s.prefix || '|' || coalesce(s.part_no, '') || '|' || s.name)::uuid, m.id, s.name, s.part_no, s.price,
+  s.category, true, s.sort_order
 from seed_accessories s join models m on m.tkm_model_code = s.prefix
 on conflict (id) do update set price = excluded.price, category = excluded.category, sort_order = excluded.sort_order, is_active = true;""")
 
     out.append("\n-- TGLOSS packages and coatings (per model)")
-    out.append("create temp table seed_vas (id uuid, prefix text, name text, price numeric) on commit drop;")
-    out.append("insert into seed_vas values\n  " + values([[uid("vas", p["prefix"], p["name"]), p["prefix"], p["name"], p["price"]] for p in vas]) + ";")
+    vas_rows = {(x["prefix"], x["name"]): x for x in vas}
+    out.append("create temp table seed_vas (prefix text, name text, price numeric) on commit drop;")
+    out.append("insert into seed_vas values\n  " + values([[x["prefix"], x["name"], x["price"]] for x in vas_rows.values()]) + ";")
     out.append("""insert into vas_products (id, name, pricing_type, price, model_id, category)
-select s.id, s.name, 'flat', s.price, m.id, 'TGLOSS'
+select md5('vas|' || s.prefix || '|' || s.name)::uuid, s.name, 'flat', s.price, m.id, 'TGLOSS'
 from seed_vas s join models m on m.tkm_model_code = s.prefix
 on conflict (id) do update set price = excluded.price, is_active = true;""")
 
-    out.append("\n-- T-Secure extended warranty prices (incl. GST), wef 10 May 2026")
-    out.append("create temp table seed_ew (id uuid, model_group text, prefix text, lo int, hi int, product text, km int, price numeric) on commit drop;")
+    out.append("\n-- T-Secure extended warranty prices (incl. GST), wef 10 May 2026: one row per model group and age band,")
+    out.append("-- prices in column order 4th yr 100K | 5th yr 100K/150K/200K | driveline 200K/220K (or a single 5th-yr unlimited price)")
+    bands = {}
+    for e in ew:
+        bands.setdefault((e["group"], e["prefix"], e["lo"], e["hi"]), []).append(e["price"])
+    out.append("create temp table seed_ew (model_group text, prefix text, lo int, hi int, prices numeric[]) on commit drop;")
     out.append("insert into seed_ew values\n  " + values(
-        [[uid("ew", e["group"], e["lo"], e["product"], e["km"]), e["group"], e["prefix"], e["lo"], e["hi"], e["product"], e["km"], e["price"]]
-         for e in ew]) + ";")
+        [[g, pfx, lo, hi, "{" + ",".join(q(v) for v in prices) + "}"] for (g, pfx, lo, hi), prices in bands.items()]) + ";")
     out.append("""insert into ew_prices (id, model_group, model_id, min_age_months, max_age_months, product, km_limit, price, effective_from)
-select s.id, s.model_group, m.id, s.lo, s.hi, s.product, s.km, s.price, date '2026-05-10'
-from seed_ew s left join models m on m.tkm_model_code = s.prefix
+select md5('ew|' || s.model_group || '|' || s.lo || '|' || p.product || '|' || coalesce(p.km::text, ''))::uuid,
+  s.model_group, m.id, s.lo, s.hi, p.product, p.km, x.price, date '2026-05-10'
+from seed_ew s
+cross join lateral unnest(s.prices) with ordinality as x(price, n)
+join lateral (
+  select n, product, km from (values (1, 'true_warranty_4th_year', 100000), (2, 'true_warranty_5th_year', 100000),
+    (3, 'true_warranty_5th_year', 150000), (4, 'true_warranty_5th_year', 200000), (5, 'driveline_5th_year', 200000),
+    (6, 'driveline_5th_year', 220000)) v(n, product, km)
+  where cardinality(s.prices) > 1
+  union all
+  select 1, 'unlimited_5th_year', null::int where cardinality(s.prices) = 1
+) p on p.n = x.n
+left join models m on m.tkm_model_code = s.prefix
 on conflict (id) do update set price = excluded.price;""")
 
     # Temp tables are "on commit drop": this file must run as one transaction (Supabase migrations do;
