@@ -43,3 +43,17 @@ engine in `supabase/migrations/` (Phase 1) for the shared `calculate_price` impl
 - The live project was migrated with `apply_migration`, which stamps its own version numbers, so
   live version numbers differ from these filenames. `20260918000002`–`000004` are live as
   `20260918101317`, `20260918101353` and `20260918101905`.
+- Phase 6a/6 on live (25 Oct 2026):
+  - `20261024000001` → `20261024180708` branches_codes_pricelist
+  - `20261024000002` was too large for one call, so it went live in sections, each self-contained:
+    - `20261024181155` master_data_seed_1_catalog
+    - variant colours: run by hand in the SQL editor, because its `delete` needs confirmation
+    - `20261025180959` / `20261025181929` master_data_seed_3a/3b_prices
+    - `20261025182327` master_data_seed_4_accessories
+    - `20261025182457` master_data_seed_5_tgloss
+    - `20261025182610` master_data_seed_6_ew
+  - `20261024000003` → `20261025182740` pricing_engine_price_list
+  - `20261025000001` → `20261025183418` customers_enquiries
+  - `20261025000002` → `20261025190553` enquiries_hardening
+  - The CTDMS staff (36) and open orders (265) were loaded with `execute_sql` and are not recorded as
+    migrations.
