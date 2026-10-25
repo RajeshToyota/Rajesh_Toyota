@@ -18,7 +18,7 @@ export default async function BookingsReportPage({
 
   let query = supabase
     .from("bookings")
-    .select("id, order_booking_no, ctdms_order_booking_no, ctdms_order_status, customer_name, total_amount, status, created_at, outlets(name), employees(name)")
+    .select("id, order_booking_no, ctdms_order_booking_no, ctdms_order_status, customer_name, total_amount, status, created_at, outlets(name), employees!bookings_employee_id_fkey(name)")
     .order("created_at", { ascending: false })
     .limit(200);
 

@@ -65,7 +65,42 @@ This plan extends the existing codebase. It does not replace it.
 - **Employees are created from the booking dump for now.** That means 30 SOs and 6 TLs at their branch, with SO → TL reporting. The full employee sheet will enrich them later. The employee file was not attached, so it still needs to be sent.
 - **Only orders with status Booked or Accepted are imported** as open bookings.
 
-## Phase 6 — status: built (25 Oct), not yet live
+## Phase 7 — status: live (26 Oct)
+
+CTDMS daily sync, on the dashboard at `/crm-sync`, for back office (Head Customer Relations and above).
+- **Upload.** One box takes either CTDMS export. The file is parsed **in the browser** by
+  `dashboard/src/lib/xls.ts`, a dependency-free BIFF8 reader (the npm SheetJS build has open advisories,
+  and the patched build is CDN-only). `lib/ctdms-import.ts` recognises the report and maps its columns,
+  and only the mapped rows are sent to the database.
+  - The reader matches LibreOffice cell for cell on all four sample exports.
+  - 12,000 damaged variants of those files all fail cleanly.
+- **Enquiry Survey Report → `import_ctdms_enquiry_report`.**
+  - Each CTDMS enquiry is matched by its number, then by mobile at that branch. Matches get the CTDMS
+    number and are set to *verified*.
+  - CTDMS enquiries we don't have go to **Missing in our CRM**. *Create in our CRM* there fills in the
+    Sales Officer and model from CTDMS: model from the suffix code, or the model name when there's no
+    suffix. Staff choose only what can't be resolved.
+  - Enquiries marked *entered* but absent from a report covering their date become *mismatch*.
+  - CTDMS repeats some enquiries on two survey lines, so each is counted once.
+- **PO Order Listing (one branch, Booked + Accepted) → `import_ctdms_order_listing`.**
+  - New orders are added as imported bookings, and unknown Sales Officers are added under their TL.
+  - Known orders get their CTDMS fields refreshed; our own bookings with that order number become *verified*.
+  - Imported orders no longer listed become *Closed in CTDMS*.
+  - Our bookings marked entered but not listed become *mismatch*.
+  - Rows with other statuses only update existing orders; they never add new ones.
+- **Queues with a Done button:**
+  - *To enter in Toyota CRM*: enquiries. The CTDMS number is optional.
+  - *To book in CTDMS*: bookings. The order number is required, since the next listing matches on it.
+  - Both queues also list *mismatch* items again.
+- **Audit and visibility.** *Upload history* keeps every batch with its summary. Back office reads its
+  branch's enquiries and bookings, including imported orders that have no consultant yet.
+- **Tests:**
+  - `supabase/tests/ctdms_sync.sql` uses synthetic rows.
+  - The real exports were also run end to end on a scratch copy of the live data.
+    - Re-uploading the three listings left all 265 orders unchanged.
+    - The 17 Sep report gave 46 distinct enquiries, all created automatically.
+
+## Phase 6 — status: live (25 Oct)
 
 Built and tested on local Postgres. It goes live together with Phase 6a.
 
@@ -90,9 +125,9 @@ Built and tested on local Postgres. It goes live together with Phase 6a.
 - **Tests:** `supabase/tests/enquiries.sql` covers dedupe, assignment rules, RLS run as real roles,
   and stage changes.
 
-## Phase 6a build — status: built (24 Oct)
+## Phase 6a build — status: live (25 Oct)
 
-Built and verified on a local Postgres. **Not yet applied to Supabase.** Re-runnable *dashboard*
+Applied to Supabase on 25 Oct (see the README for live version numbers). Re-runnable *dashboard*
 upload screens for PO listings, price lists and accessories are moved to Phase 7, together with the
 CTDMS enquiry sync. Both need an .xls reader; see the open items.
 

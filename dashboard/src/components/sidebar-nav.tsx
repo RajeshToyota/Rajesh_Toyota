@@ -10,6 +10,7 @@ const extraLinks: { title: string; links: { href: string; label: string }[] }[] 
     links: [
       { href: "/enquiries", label: "Enquiries" },
       { href: "/enquiries/new", label: "New Enquiry" },
+      { href: "/crm-sync", label: "CTDMS Sync" },
     ],
   },
   {

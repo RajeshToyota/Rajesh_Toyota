@@ -54,6 +54,10 @@ export const CRM_SYNC_OPTIONS = [
 // create_enquiry / reassign_enquiry RPCs enforce the same rule.
 export const ASSIGN_MAX_RANK = 4;
 
+// Head Customer Relations (rank 3) and above work the CTDMS sync; is_crm_back_office() in the
+// database enforces the same line.
+export const CRM_BACK_OFFICE_MAX_RANK = 3;
+
 export function labelFor(options: { id: string; name: string }[], id: string | null | undefined) {
   return options.find((o) => o.id === id)?.name ?? id ?? "—";
 }
