@@ -14,6 +14,16 @@ const extraLinks: { title: string; links: { href: string; label: string }[] }[] 
     ],
   },
   {
+    title: "Stock",
+    links: [
+      { href: "/stock", label: "Free Stock" },
+      { href: "/stock/match", label: "Match & Allot" },
+      { href: "/stock/allotted", label: "Allotted" },
+      { href: "/stock/billing", label: "Billing" },
+      { href: "/stock/ctdms", label: "CTDMS To-do" },
+    ],
+  },
+  {
     title: "Reporting",
     links: [
       { href: "/reports/quotes", label: "Quotes" },

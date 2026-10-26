@@ -3,20 +3,29 @@ import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl } 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { PriceSummary } from "@/components/price-summary";
+import { supabase } from "@/lib/supabase";
 import { findDocket, loadBooking, type Docket, type DocketBooking } from "@/lib/docket";
+
+type Allotment = { allotted_at: string; vehicles: { vin: string; source: string } | { vin: string; source: string }[] | null };
 
 export default function BookingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [booking, setBooking] = useState<DocketBooking | null>(null);
   const [docket, setDocket] = useState<Docket | null>(null);
+  const [allotment, setAllotment] = useState<Allotment | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [b, d] = await Promise.all([loadBooking(id), findDocket(id)]);
+      const [b, d, a] = await Promise.all([
+        loadBooking(id),
+        findDocket(id),
+        supabase.from("allotments").select("allotted_at, vehicles(vin, source)").eq("booking_id", id).is("released_at", null).maybeSingle(),
+      ]);
       setBooking(b);
       setDocket(d);
+      setAllotment((a.data as Allotment | null) ?? null);
       setError(null);
     } catch (e: any) {
       setError(e.message ?? "Could not load this booking");
@@ -77,6 +86,21 @@ export default function BookingScreen() {
           </Text>
           {booking.customer_mobile && <Text className="mt-1 text-sm text-slate-500">{booking.customer_mobile}</Text>}
         </View>
+
+        {allotment && (
+          <View className="rounded-xl border border-slate-200 p-4">
+            <Text className="font-medium text-slate-900">Car allotted</Text>
+            {(() => {
+              const v = Array.isArray(allotment.vehicles) ? allotment.vehicles[0] : allotment.vehicles;
+              return (
+                <Text className="mt-1 text-sm text-slate-500">
+                  {v ? `${v.vin}${v.source === "transit" ? " · in transit" : " · in the yard"}` : "VIN not visible here"} · since{" "}
+                  {new Date(allotment.allotted_at).toLocaleDateString("en-IN")}
+                </Text>
+              );
+            })()}
+          </View>
+        )}
 
         {booking.status !== "cancelled" && (
           <Pressable

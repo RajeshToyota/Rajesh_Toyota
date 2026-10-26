@@ -65,6 +65,49 @@ This plan extends the existing codebase. It does not replace it.
 - **Employees are created from the booking dump for now.** That means 30 SOs and 6 TLs at their branch, with SO → TL reporting. The full employee sheet will enrich them later. The employee file was not attached, so it still needs to be sent.
 - **Only orders with status Booked or Accepted are imported** as open bookings.
 
+## Phase 10 — status: live (26 Oct)
+
+Stock, allotment and billing (`20261029000001_stock_allotment.sql`), on the dashboard under **Stock**.
+- **Import.** The CTDMS Stock Statement PDFs (Transit and Physical Stock) are read in the browser by
+  `dashboard/src/lib/stock-pdf.ts`, using pdf.js. Each text item goes to the nearest column header and
+  the nearest Sr. No./VIN row, which handles wrapped model and company names. Both sample reports read
+  completely (31/31 and 173/173).
+  - `import_stock_statement` upserts on VIN. A transit car becomes a yard car when it appears in the
+    physical report.
+  - Cars missing from a later report are flagged.
+  - Suffix codes map to variants. Colour names map to the variant's colours, which handles CTDMS
+    abbreviations ("GF", "A.BLACK", "WHITEPEARL", "X DUAL TONE").
+  - Anything unresolved goes to *Colours to map* or *Suffix not in master*.
+  - On the sample files 195 of 204 cars mapped. Glanza D24Z3/ZI/ZK aren't in master data, and the
+    Fortuner Legender two-tone isn't linked to its variants.
+- **Allotment** (Outlet Head and above; stock is shared across branches):
+  - *FIFO*: earliest booking first, then the oldest matching car (same variant and colour), yard
+    before transit.
+  - *Already blocked in CTDMS*: CTDMS has the car blocked for one of our open orders.
+  - *Manual*: from the car's page. A different variant or colour needs a reason.
+  - *Swap*: gives the car to another booking, and the first booking goes back to the queue.
+  - *Release*: needs a reason.
+  - Cars invoiced in CTDMS are never offered.
+  - Bookings awaiting a discount approval or closed in CTDMS are skipped.
+- **CTDMS to-do.** Every allot or release adds a *Block* / *Unblock in CTDMS* task with a Done button.
+  A block that was never done is simply cancelled on release.
+- **Mismatches** after each upload:
+  - blocked in CTDMS but free with us
+  - allotted with us but still free in CTDMS
+  - blocked for a different order
+  - allotted but missing from the report
+  - invoiced in CTDMS but not billed with us
+- **Billing.**
+  - *Send for billing* needs the car in the yard and a **complete Welcome Docket**. This applies to every
+    booking, including the imported CTDMS orders.
+  - The new **Accounts** role (rank 6, so it can never approve anything) sees its branch's queue and
+    records the invoice no./date/amount. The car is then *billed*.
+  - An Outlet Head can pull a request back before it is invoiced.
+- **Mobile.** The booking screen shows the allotted VIN.
+- **New dependency.** `pdfjs-dist` 6.4.299 in the dashboard; it adds no audit advisories.
+- **Tests:** `supabase/tests/stock_allotment.sql`. The real PDFs were also imported end to end into a
+  scratch copy of the live data.
+
 ## Phase 9 — status: live (26 Oct)
 
 Digital Welcome Docket, one per booking (`20261028000001_welcome_dockets.sql`), filled in on the

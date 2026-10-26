@@ -39,7 +39,7 @@ engine in `supabase/migrations/` (Phase 1) for the shared `calculate_price` impl
   and staff names, so it goes to `data/private/` (git-ignored) and is applied straight to the
   database — never committed.
 - Local check: `PGHOST=/tmp PGPORT=54329 PGUSER=postgres scripts/localdb/apply.sh` then
-  `psql -d rt_crm_test -f supabase/tests/price_list_pricing.sql` (and `enquiries.sql`, `ctdms_sync.sql`, `staged_quotes.sql`, `welcome_dockets.sql`).
+  `psql -d rt_crm_test -f supabase/tests/price_list_pricing.sql` (and `enquiries.sql`, `ctdms_sync.sql`, `staged_quotes.sql`, `welcome_dockets.sql`, `stock_allotment.sql`).
 - The live project was migrated with `apply_migration`, which stamps its own version numbers, so
   live version numbers differ from these filenames. `20260918000002`–`000004` are live as
   `20260918101317`, `20260918101353` and `20260918101905`.
@@ -58,5 +58,6 @@ engine in `supabase/migrations/` (Phase 1) for the shared `calculate_price` impl
   - `20261026000001` → `20261025192303` ctdms_sync (Phase 7)
   - `20261027000001` → `20261026041848` staged_quotes (Phase 8)
   - `20261028000001` → `20261026043750` welcome_dockets (Phase 9)
+  - `20261029000001` → `20261026052321` stock_allotment (Phase 10)
   - The CTDMS staff (36) and open orders (265) were loaded with `execute_sql` and are not recorded as
     migrations.
