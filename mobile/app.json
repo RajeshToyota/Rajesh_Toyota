@@ -24,7 +24,16 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "The app uses the camera to photograph the customer's documents for the Welcome Docket.",
+          "photosPermission": "The app reads photos you choose to attach the customer's documents to the Welcome Docket."
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true
     }

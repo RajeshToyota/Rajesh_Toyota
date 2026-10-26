@@ -2,26 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentEmployee } from "@/lib/auth";
 
+// decide_approval() checks the approver's rank and that nobody approves their own request;
+// approvals cannot be updated directly.
 export async function decideApproval(formData: FormData) {
-  const approvalId = formData.get("approval_id") as string;
-  const decision = formData.get("decision") as "approved" | "rejected";
-  const comment = (formData.get("comment") as string) || null;
-
-  const employee = await getCurrentEmployee();
-  if (!employee) throw new Error("Not signed in");
-
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("approvals")
-    .update({
-      status: decision,
-      approver_employee_id: employee.id,
-      comment,
-      decided_at: new Date().toISOString(),
-    })
-    .eq("id", approvalId);
+  const { error } = await supabase.rpc("decide_approval", {
+    p_approval_id: formData.get("approval_id") as string,
+    p_decision: formData.get("decision") as string,
+    p_comment: (formData.get("comment") as string) || null,
+  });
 
   if (error) throw new Error(error.message);
 

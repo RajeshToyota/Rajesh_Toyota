@@ -6,3 +6,5 @@ dist/
 .next/
 *.log
 mobile/.claude/
+data/private/
+__pycache__/

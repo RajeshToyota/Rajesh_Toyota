@@ -28,8 +28,10 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isAuthRoute = request.nextUrl.pathname.startsWith("/login");
+  // The login invite / set-password link: open with or without a session.
+  const isPasswordRoute = request.nextUrl.pathname.startsWith("/auth/");
 
-  if (!user && !isAuthRoute) {
+  if (!user && !isAuthRoute && !isPasswordRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

@@ -2,6 +2,21 @@ import { View, Text, TextInput, Switch } from "react-native";
 import { PickerList, CheckboxRow } from "@/components/picker-list";
 import type { VehicleSelection } from "@/hooks/use-vehicle-selection";
 
+const LIST_TYPE_LABELS: Record<string, string> = {
+  private: "Private (White board)",
+  commercial: "Commercial (Yellow board)",
+  csd: "CSD",
+};
+
+const INSURANCE_OPTION_LABELS: Record<string, string> = {
+  advance: "Advance",
+  premium: "Premium",
+  premium_3plus3: "Premium 3+3",
+  luxury: "Luxury",
+};
+
+const inr = (n: number) => `₹${Number(n).toLocaleString("en-IN")}`;
+
 // Renders one step (0-9, see VEHICLE_STEP_TITLES in the hook) of the shared vehicle/scheme/RTO/
 // insurance/accessory/VAS selection flow used by both the quote wizard and the direct-booking
 // wizard.
@@ -75,6 +90,17 @@ export function VehicleSelectionStep({ step, vs }: { step: number; vs: VehicleSe
     case 5:
       return (
         <View className="gap-4">
+          {vs.availableListTypes.length > 0 && (
+            <>
+              <Text className="font-medium text-slate-700">Registration / price list</Text>
+              <PickerList
+                options={vs.availableListTypes.map((t) => ({ id: t, label: LIST_TYPE_LABELS[t] }))}
+                selectedId={vs.priceListType}
+                onSelect={(id) => vs.setPriceListType(id as typeof vs.priceListType)}
+              />
+              <Text className="mt-2 font-medium text-slate-700">RTO category</Text>
+            </>
+          )}
           <PickerList
             options={vs.rtoCategories.map((r) => ({ id: r.id, label: r.name }))}
             selectedId={vs.rtoCategoryId}
@@ -160,7 +186,22 @@ export function VehicleSelectionStep({ step, vs }: { step: number; vs: VehicleSe
             }}
           />
 
-          {vs.insuranceChoice === "rajesh_toyota" && (
+          {vs.usesListInsurance && (
+            <>
+              <Text className="mt-2 font-medium text-slate-700">Insurance (as per price list)</Text>
+              <PickerList
+                options={vs.listInsuranceOptions.map((o) => ({
+                  id: o.id,
+                  label: INSURANCE_OPTION_LABELS[o.id] ?? o.id,
+                  sublabel: inr(o.amount),
+                }))}
+                selectedId={vs.insuranceOption}
+                onSelect={vs.setInsuranceOption}
+              />
+            </>
+          )}
+
+          {vs.insuranceChoice === "rajesh_toyota" && !vs.usesListInsurance && (
             <>
               <Text className="mt-2 font-medium text-slate-700">Coverage</Text>
               <PickerList
@@ -210,7 +251,15 @@ export function VehicleSelectionStep({ step, vs }: { step: number; vs: VehicleSe
     case 9:
       return (
         <View className="gap-2">
-          {vs.vasProducts.length === 0 ? (
+          {vs.extendedWarrantyAmount !== null && (
+            <CheckboxRow
+              label="True Warranty – 5th year / 1 lakh km"
+              sublabel={inr(vs.extendedWarrantyAmount)}
+              checked={vs.includeExtendedWarranty}
+              onToggle={() => vs.setIncludeExtendedWarranty(!vs.includeExtendedWarranty)}
+            />
+          )}
+          {vs.vasProducts.length === 0 && vs.extendedWarrantyAmount === null ? (
             <Text className="py-6 text-center text-slate-400">No VAS products configured.</Text>
           ) : (
             vs.vasProducts.map((v: any) => (

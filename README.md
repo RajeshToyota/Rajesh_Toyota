@@ -14,7 +14,22 @@ ever revisited.
 - `supabase/migrations/` — versioned SQL migrations (schema, RLS, seed data)
 - `supabase/functions/` — Edge Functions (added in Phase 1: `price-quote`)
 - `dashboard/` — Next.js admin dashboard (added in Phase 2)
+- `docs/ROADMAP.md` — full enquiry-to-delivery plan (Phases 6–15)
+- `scripts/seed/` — generators for master data (price lists, accessories, EW, TKM codes) and for
+  importing open CTDMS orders; `scripts/localdb/` — apply all migrations to a local Postgres
+- `supabase/tests/` — SQL checks run against a scratch database
 - `mobile/` — Expo mobile app (added in Phase 3+)
+
+## Dashboard environment
+
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`: the project URL and publishable key.
+- `SUPABASE_SERVICE_ROLE_KEY` (server only; never prefix with `NEXT_PUBLIC_`): lets HR send login
+  invites and set-password links, and blocks a leaver's login. Without it those buttons explain
+  what's missing; everything else works.
+- `NEXT_PUBLIC_SITE_URL` (optional): the dashboard's public address, used in the link inside invite
+  emails. Without it, the address of the request is used.
+- In Supabase → Authentication → URL Configuration, add `<dashboard address>/auth/set-password` to the
+  redirect URLs, or invite links will land on the Site URL instead.
 
 ## Core design principle
 
@@ -22,3 +37,43 @@ Selections (what the customer chose) are permanent. Price is never authoritative
 it is recomputed server-side from live master data at each of three checkpoints: quote creation,
 proceed-to-booking, and (a later phase, not yet built) finalize-for-delivery. See the pricing
 engine in `supabase/migrations/` (Phase 1) for the shared `calculate_price` implementation.
+
+## Master data and CTDMS imports (Phase 6a)
+
+- `supabase/migrations/20261024000002_master_data_seed.sql` is **generated** by
+  `scripts/seed/build_master_seed.py` from the TKM price-list PDFs, the TGA accessory order forms and
+  the T-Secure EW list. When TKM revises a list, update the file/config in the script, regenerate,
+  and add the output as a new migration. The script reconciles every row against the list's own
+  "On Road" figure and prints anything that doesn't add up.
+- Open CTDMS orders (PO Order Listing, status Booked/Accepted) and the Sales Officers / Team Leaders
+  they name are loaded with `scripts/seed/build_ctdms_orders_seed.py`. Its output contains customer
+  and staff names, so it goes to `data/private/` (git-ignored) and is applied straight to the
+  database — never committed.
+- Local check: `PGHOST=/tmp PGPORT=54329 PGUSER=postgres scripts/localdb/apply.sh` then
+  `psql -d rt_crm_test -f supabase/tests/price_list_pricing.sql` (and `enquiries.sql`, `ctdms_sync.sql`, `staged_quotes.sql`, `welcome_dockets.sql`, `stock_allotment.sql`, `finance_cases.sql`, `payments_delivery.sql`, `hold_cancel.sql`, `employee_management.sql`, `pipeline_reports.sql`).
+- The live project was migrated with `apply_migration`, which stamps its own version numbers, so
+  live version numbers differ from these filenames. `20260918000002`–`000004` are live as
+  `20260918101317`, `20260918101353` and `20260918101905`.
+- Phase 6a/6 on live (25 Oct 2026):
+  - `20261024000001` → `20261024180708` branches_codes_pricelist
+  - `20261024000002` was too large for one call, so it went live in sections, each self-contained:
+    - `20261024181155` master_data_seed_1_catalog
+    - variant colours: run by hand in the SQL editor, because its `delete` needs confirmation
+    - `20261025180959` / `20261025181929` master_data_seed_3a/3b_prices
+    - `20261025182327` master_data_seed_4_accessories
+    - `20261025182457` master_data_seed_5_tgloss
+    - `20261025182610` master_data_seed_6_ew
+  - `20261024000003` → `20261025182740` pricing_engine_price_list
+  - `20261025000001` → `20261025183418` customers_enquiries
+  - `20261025000002` → `20261025190553` enquiries_hardening
+  - `20261026000001` → `20261025192303` ctdms_sync (Phase 7)
+  - `20261027000001` → `20261026041848` staged_quotes (Phase 8)
+  - `20261028000001` → `20261026043750` welcome_dockets (Phase 9)
+  - `20261029000001` → `20261026052321` stock_allotment (Phase 10)
+  - `20261030000001` → `20261026053217` finance_cases (Phase 11)
+  - `20261031000001` → `20261026074654` payments_delivery (Phase 12)
+  - `20261101000001` → `20261026075429` hold_cancel (Phase 13)
+  - `20261102000001` → `20261026081013` employee_management (Phase 14)
+  - `20261103000001` → `20261026091801` pipeline_reports (Phase 15)
+  - The CTDMS staff (36) and open orders (265) were loaded with `execute_sql` and are not recorded as
+    migrations.

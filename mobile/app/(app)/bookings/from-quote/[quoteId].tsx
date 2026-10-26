@@ -47,6 +47,7 @@ export default function ProceedToBookingScreen() {
   const [confirming, setConfirming] = useState(false);
   const [approvalNeeded, setApprovalNeeded] = useState(false);
   const [approvalRoleName, setApprovalRoleName] = useState<string | null>(null);
+  const [bookingId, setBookingId] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -62,6 +63,11 @@ export default function ProceedToBookingScreen() {
         return;
       }
       setQuote(quoteRow);
+      if (quoteRow.current_stage !== "final") {
+        setError("Finalise this quote before booking it: open the quote and tap Finalise.");
+        setStep("error");
+        return;
+      }
 
       let scrap: QuoteSelections["scrap"] = null;
       if (quoteRow.scrap_certificate_id) {
@@ -78,12 +84,16 @@ export default function ProceedToBookingScreen() {
         color_id: quoteRow.color_id,
         state: quoteRow.outlets?.state ?? "Rajasthan",
         rto_category_id: quoteRow.rto_category_id,
+        list_type: quoteRow.price_list_type ?? "private",
+        insurance_option: quoteRow.insurance_option ?? null,
+        include_extended_warranty: quoteRow.include_extended_warranty ?? false,
         scrap,
         insurance_plan_id: quoteRow.insurance_plan_id,
         insurance_addon_ids: quoteRow.insurance_addon_ids ?? [],
         accessory_ids: quoteRow.accessory_ids ?? [],
         vas_product_ids: quoteRow.vas_product_ids ?? [],
         selected_scheme_line_item_ids: quoteRow.selected_scheme_line_item_ids ?? [],
+        dealer_discount: Number(quoteRow.dealer_discount ?? 0),
         has_exchange: true, // the quote was already priced with whatever exchange context applied
         has_scrap: !!scrap,
       };
@@ -116,6 +126,9 @@ export default function ProceedToBookingScreen() {
 
       const { bookingId, approvalNeeded, approvalRoleName } = await confirmBooking({
         quoteId: quote.id,
+        enquiryId: quote.enquiry_id ?? null,
+        customerName: quote.customer_name,
+        customerMobile: quote.customer_mobile ?? quote.customer_phone ?? null,
         outletId: employee.outletId!,
         employeeId: employee.id,
         selections,
@@ -141,6 +154,7 @@ export default function ProceedToBookingScreen() {
 
       setApprovalNeeded(approvalNeeded);
       setApprovalRoleName(approvalRoleName);
+      setBookingId(bookingId);
       setStep("done");
     } catch (e: any) {
       setError(e.message ?? "Failed to confirm this booking");
@@ -264,8 +278,16 @@ export default function ProceedToBookingScreen() {
               </Text>
             </View>
           )}
-          <View className="items-center rounded-lg bg-slate-900 py-3" onTouchEnd={() => router.replace("/(app)/bookings")}>
-            <Text className="font-medium text-white">View My Bookings</Text>
+          {bookingId && (
+            <View
+              className="items-center rounded-lg bg-slate-900 py-3"
+              onTouchEnd={() => router.replace(`/(app)/bookings/${bookingId}/docket`)}
+            >
+              <Text className="font-medium text-white">Fill Welcome Docket</Text>
+            </View>
+          )}
+          <View className="items-center rounded-lg border border-slate-300 py-3" onTouchEnd={() => router.replace("/(app)/bookings")}>
+            <Text className="font-medium text-slate-700">View My Bookings</Text>
           </View>
         </View>
       </SafeAreaView>

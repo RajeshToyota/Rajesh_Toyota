@@ -6,8 +6,40 @@ import { entityGroups } from "@/lib/entities";
 
 const extraLinks: { title: string; links: { href: string; label: string }[] }[] = [
   {
+    title: "Sales",
+    links: [
+      { href: "/enquiries", label: "Enquiries" },
+      { href: "/enquiries/new", label: "New Enquiry" },
+      { href: "/crm-sync", label: "CTDMS Sync" },
+      { href: "/finance", label: "Finance Cases" },
+    ],
+  },
+  {
+    title: "Stock",
+    links: [
+      { href: "/stock", label: "Free Stock" },
+      { href: "/stock/match", label: "Match & Allot" },
+      { href: "/stock/allotted", label: "Allotted" },
+      { href: "/stock/billing", label: "Billing" },
+      { href: "/payments", label: "Payments" },
+      { href: "/cancellations", label: "Hold & Cancellations" },
+      { href: "/stock/ctdms", label: "CTDMS To-do" },
+    ],
+  },
+  {
+    title: "People",
+    links: [
+      { href: "/hr", label: "Employees" },
+      { href: "/hr/new", label: "Add Employee" },
+    ],
+  },
+  {
     title: "Reporting",
     links: [
+      { href: "/", label: "Pipeline" },
+      { href: "/reports/consultants", label: "Consultants" },
+      { href: "/reports/sources", label: "Sources & Reasons" },
+      { href: "/reports/stock-ageing", label: "Stock Ageing" },
       { href: "/reports/quotes", label: "Quotes" },
       { href: "/reports/bookings", label: "Bookings" },
       { href: "/reports/approvals", label: "Approvals" },

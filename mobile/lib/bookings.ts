@@ -1,16 +1,19 @@
 import { supabase } from "@/lib/supabase";
-import { findApprovalRequirement, createApprovalRequest } from "@/lib/approvals";
+import { requestBookingApproval } from "@/lib/approvals";
 import type { PricingResult, QuoteSelections } from "@/lib/types";
 import type { BookingForm } from "@/hooks/use-booking-form";
 
 // Confirming always creates the bookings row (this is the persisted record of what was agreed),
-// per spec 6.2 step 6. When the discount crosses an approval threshold, a pending approvals row
-// is attached to that booking alongside it, same as the quote flow's block-until-approved
-// behavior — the schema has no "pending" booking status to withhold the row itself on, so the
-// gate is enforced on top of the booked record rather than before it: a Team Leader/Outlet Head
-// must clear the pending approval before the booking can move past `booked` (allocated/delivered).
+// per spec 6.2 step 6. A booking made from a final staged quote carries that quote's approved
+// schemes and dealer discount (the database copies them). A direct booking asks for approval of
+// its scheme discount after the row exists; the schema has no "pending" booking status, so the gate
+// sits on top of the booked record: the approval must clear before it can move past `booked`.
 export async function confirmBooking(params: {
   quoteId?: string;
+  enquiryId?: string | null;
+  // A booking from a quote takes the quote's customer in the database; a direct booking sends it.
+  customerName?: string | null;
+  customerMobile?: string | null;
   outletId: string;
   employeeId: string;
   selections: QuoteSelections;
@@ -25,6 +28,9 @@ export async function confirmBooking(params: {
     .from("bookings")
     .insert({
       quote_id: params.quoteId ?? null,
+      enquiry_id: params.enquiryId ?? null,
+      customer_name: params.customerName || null,
+      customer_mobile: params.customerMobile || null,
       outlet_id: params.outletId,
       employee_id: params.employeeId,
       order_booking_no: params.orderBookingNo ?? null,
@@ -33,6 +39,9 @@ export async function confirmBooking(params: {
       variant_id: params.selections.variant_id,
       color_id: params.selections.color_id,
       rto_category_id: params.selections.rto_category_id,
+      price_list_type: params.selections.list_type ?? "private",
+      insurance_option: params.selections.insurance_option ?? null,
+      include_extended_warranty: params.selections.include_extended_warranty ?? false,
       insurance_plan_id: params.selections.insurance_plan_id ?? null,
       insurance_addon_ids: params.selections.insurance_addon_ids ?? [],
       accessory_ids: params.selections.accessory_ids ?? [],
@@ -50,23 +59,11 @@ export async function confirmBooking(params: {
 
   if (insertError) throw new Error(insertError.message);
 
-  const requirement = await findApprovalRequirement(
-    params.outletId,
-    params.pricing.scheme_discount_customer_facing,
-  );
-
-  if (requirement) {
-    await createApprovalRequest({
-      bookingId: inserted.id,
-      requestedByEmployeeId: params.employeeId,
-      requiredRoleId: requirement.requiredRoleId,
-      discountAmount: params.pricing.scheme_discount_customer_facing,
-    });
-  }
+  const { approvalRequired, requiredRole } = await requestBookingApproval(inserted.id);
 
   return {
     bookingId: inserted.id,
-    approvalNeeded: !!requirement,
-    approvalRoleName: requirement?.requiredRoleName ?? null,
+    approvalNeeded: approvalRequired,
+    approvalRoleName: requiredRole,
   };
 }

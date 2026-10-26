@@ -16,7 +16,7 @@ export default async function MarginReportPage({
 
   let query = supabase
     .from("bookings")
-    .select("dealer_margin, total_amount, outlet_id, employee_id, created_at, outlets(name), employees(name)")
+    .select("dealer_margin, total_amount, outlet_id, employee_id, created_at, outlets(name), employees!bookings_employee_id_fkey(name)")
     .not("status", "eq", "cancelled");
 
   if (params.outlet_id) query = query.eq("outlet_id", params.outlet_id);

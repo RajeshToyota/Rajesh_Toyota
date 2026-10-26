@@ -3,12 +3,14 @@ import { View, Text, FlatList, Pressable, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, router } from "expo-router";
 import { supabase } from "@/lib/supabase";
+import { stageLabel } from "@/lib/quote-stages";
 
 type QuoteRow = {
   id: string;
   customer_name: string;
   total_amount: number | null;
   status: string;
+  current_stage: string;
   created_at: string;
   priced_as_of: string | null;
 };
@@ -37,7 +39,7 @@ export default function MyQuotesScreen() {
   const load = useCallback(async () => {
     let query = supabase
       .from("quotes")
-      .select("id, customer_name, total_amount, status, created_at, priced_as_of")
+      .select("id, customer_name, total_amount, status, current_stage, created_at, priced_as_of")
       .order("created_at", { ascending: false });
 
     if (filter !== "all") query = query.eq("status", filter);
@@ -79,7 +81,7 @@ export default function MyQuotesScreen() {
         contentContainerClassName="p-4 gap-3"
         ListEmptyComponent={<Text className="mt-8 text-center text-slate-400">No quotes yet.</Text>}
         renderItem={({ item }) => (
-          <View className="rounded-xl border border-slate-200 p-4">
+          <Pressable onPress={() => router.push(`/(app)/quotes/${item.id}`)} className="rounded-xl border border-slate-200 p-4">
             <View className="flex-row items-center justify-between">
               <Text className="font-medium text-slate-900">{item.customer_name}</Text>
               <StatusBadge status={item.status} />
@@ -88,9 +90,9 @@ export default function MyQuotesScreen() {
               {item.total_amount ? `₹${Math.round(item.total_amount).toLocaleString("en-IN")}` : "—"}
             </Text>
             <Text className="mt-1 text-xs text-slate-400">
-              Priced {item.priced_as_of ? new Date(item.priced_as_of).toLocaleDateString() : "—"}
+              {stageLabel(item.current_stage)} · priced {item.priced_as_of ? new Date(item.priced_as_of).toLocaleDateString() : "—"}
             </Text>
-            {(item.status === "draft" || item.status === "sent") && (
+            {item.current_stage === "final" && (item.status === "draft" || item.status === "sent") && (
               <Pressable
                 onPress={() => router.push(`/(app)/bookings/from-quote/${item.id}`)}
                 className="mt-3 items-center rounded-lg border border-slate-300 py-2"
@@ -98,7 +100,7 @@ export default function MyQuotesScreen() {
                 <Text className="text-sm font-medium text-slate-700">Proceed to Booking</Text>
               </Pressable>
             )}
-          </View>
+          </Pressable>
         )}
       />
     </SafeAreaView>

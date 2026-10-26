@@ -1,6 +1,9 @@
 import Link from "next/link";
 
 const TABS = [
+  { href: "/reports/consultants", label: "Consultants" },
+  { href: "/reports/sources", label: "Sources & Reasons" },
+  { href: "/reports/stock-ageing", label: "Stock Ageing" },
   { href: "/reports/quotes", label: "Quotes" },
   { href: "/reports/bookings", label: "Bookings" },
   { href: "/reports/approvals", label: "Approvals" },

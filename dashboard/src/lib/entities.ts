@@ -8,7 +8,8 @@ export type FieldType =
   | "boolean"
   | "date"
   | "select"
-  | "foreign_key";
+  | "foreign_key"
+  | "text_array";
 
 export interface FieldConfig {
   key: string;
@@ -43,6 +44,7 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
         fields: [
           { key: "name", label: "Name", type: "text", required: true },
           { key: "segment", label: "Segment", type: "text" },
+          { key: "tkm_model_code", label: "TKM Model Code (e.g. D22)", type: "text" },
           { key: "is_active", label: "Active", type: "boolean" },
         ],
       },
@@ -70,6 +72,8 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
           { key: "fuel_type_id", label: "Fuel Type", type: "foreign_key", foreignTable: "fuel_types", required: true },
           { key: "transmission_id", label: "Transmission", type: "foreign_key", foreignTable: "transmissions", required: true },
           { key: "suffix", label: "Suffix", type: "text", required: true },
+          { key: "tkm_suffix_code", label: "TKM Suffix Code (e.g. D22U4)", type: "text" },
+          { key: "old_suffix_code", label: "Old Suffix Code", type: "text", hideInTable: true },
           { key: "name", label: "Name", type: "text", required: true },
           { key: "is_active", label: "Active", type: "boolean" },
         ],
@@ -82,6 +86,18 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
         fields: [
           { key: "name", label: "Name", type: "text", required: true },
           { key: "hex", label: "Hex", type: "text" },
+          { key: "tkm_color_code", label: "TKM Colour Code", type: "text" },
+          {
+            key: "paint_category",
+            label: "Paint (price-list row)",
+            type: "select",
+            required: true,
+            options: [
+              { value: "standard", label: "Standard" },
+              { value: "pearl_white", label: "Pearl White" },
+              { value: "dual_tone", label: "Dual Tone" },
+            ],
+          },
           { key: "is_dual_tone", label: "Dual Tone", type: "boolean" },
         ],
       },
@@ -100,13 +116,45 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
         slug: "price-list",
         table: "price_list",
         title: "Price List",
-        description: "Ex-showroom pricing by variant, color, and state, with effective dating.",
+        description:
+          "Dealer price list by variant, list (private / commercial / CSD), paint and state, with effective dating. " +
+          "A row with a colour applies to that colour only; otherwise it applies to every colour of its paint category. " +
+          "Insurance options are loaded from the TKM lists by scripts/seed/build_master_seed.py.",
         orderBy: "effective_from",
         fields: [
           { key: "variant_id", label: "Variant", type: "foreign_key", foreignTable: "variants", foreignLabelKey: "name", required: true },
-          { key: "color_id", label: "Color", type: "foreign_key", foreignTable: "colors", required: true },
+          {
+            key: "list_type",
+            label: "List",
+            type: "select",
+            required: true,
+            options: [
+              { value: "private", label: "Private" },
+              { value: "commercial", label: "Commercial" },
+              { value: "csd", label: "CSD" },
+            ],
+          },
+          {
+            key: "paint_category",
+            label: "Paint",
+            type: "select",
+            required: true,
+            options: [
+              { value: "standard", label: "Standard" },
+              { value: "pearl_white", label: "Pearl White" },
+              { value: "dual_tone", label: "Dual Tone" },
+            ],
+          },
+          { key: "color_id", label: "Specific Color (optional)", type: "foreign_key", foreignTable: "colors", hideInTable: true },
           { key: "state", label: "State", type: "text", required: true },
           { key: "ex_showroom_price", label: "Ex-Showroom Price", type: "number", step: "0.01", required: true },
+          { key: "tcs_amount", label: "TCS (as printed)", type: "number", step: "0.01", hideInTable: true },
+          { key: "road_tax_registration", label: "Road Tax & Registration", type: "number", step: "0.01" },
+          { key: "fastag_amount", label: "FASTag", type: "number", step: "0.01", hideInTable: true },
+          { key: "ew_5th_year_amount", label: "True Warranty 5th Year", type: "number", step: "0.01", hideInTable: true },
+          { key: "tgloss_package_amount", label: "TGLOSS Package", type: "number", step: "0.01", hideInTable: true },
+          { key: "tga_combo_amount", label: "TGA Combo", type: "number", step: "0.01", hideInTable: true },
+          { key: "on_road_listed", label: "On-Road (as printed)", type: "number", step: "0.01" },
           { key: "dealer_purchase_price", label: "Dealer Purchase Price", type: "number", step: "0.01" },
           { key: "effective_from", label: "Effective From", type: "date", required: true },
           { key: "effective_to", label: "Effective To", type: "date" },
@@ -124,7 +172,7 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
         orderBy: "valid_from",
         fields: [
           { key: "model_id", label: "Model", type: "foreign_key", foreignTable: "models", required: true },
-          { key: "suffix_scope", label: "Suffix Scope (blank = all)", type: "text" },
+          { key: "suffix_scope_list", label: "Suffix Scope (comma-separated codes, blank = all)", type: "text_array" },
           { key: "name", label: "Name", type: "text", required: true },
           { key: "valid_from", label: "Valid From", type: "date", required: true },
           { key: "valid_to", label: "Valid To", type: "date", required: true },
@@ -253,7 +301,10 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
           { key: "variant_id", label: "Variant (optional)", type: "foreign_key", foreignTable: "variants", foreignLabelKey: "name" },
           { key: "name", label: "Name", type: "text", required: true },
           { key: "part_no", label: "Part No.", type: "text" },
+          { key: "category", label: "Category", type: "text" },
           { key: "price", label: "Price", type: "number", step: "0.01", required: true },
+          { key: "sort_order", label: "Order-form S.No", type: "number", hideInTable: true },
+          { key: "is_active", label: "Active", type: "boolean" },
         ],
       },
       {
@@ -262,6 +313,8 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
         title: "VAS Products",
         orderBy: "name",
         fields: [
+          { key: "model_id", label: "Model (blank = all)", type: "foreign_key", foreignTable: "models" },
+          { key: "category", label: "Category", type: "text" },
           { key: "name", label: "Name", type: "text", required: true },
           {
             key: "pricing_type",
@@ -275,6 +328,35 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
           },
           { key: "price", label: "Price", type: "number", step: "0.01", required: true },
           { key: "tenure_months", label: "Tenure (months)", type: "number" },
+          { key: "is_active", label: "Active", type: "boolean" },
+        ],
+      },
+      {
+        slug: "ew-prices",
+        table: "ew_prices",
+        title: "Extended Warranty Prices",
+        description: "T-Secure customer prices (incl. GST) by model group, vehicle age at purchase and product.",
+        orderBy: "model_group",
+        fields: [
+          { key: "model_group", label: "Model Group", type: "text", required: true },
+          { key: "model_id", label: "Model", type: "foreign_key", foreignTable: "models" },
+          { key: "min_age_months", label: "Age From (months)", type: "number", required: true },
+          { key: "max_age_months", label: "Age To (months)", type: "number", required: true },
+          {
+            key: "product",
+            label: "Product",
+            type: "select",
+            required: true,
+            options: [
+              { value: "true_warranty_4th_year", label: "True Warranty – 4th year" },
+              { value: "true_warranty_5th_year", label: "True Warranty – 5th year" },
+              { value: "driveline_5th_year", label: "Driveline – 5th year" },
+              { value: "unlimited_5th_year", label: "5th year / unlimited km" },
+            ],
+          },
+          { key: "km_limit", label: "Km Limit", type: "number" },
+          { key: "price", label: "Price", type: "number", step: "0.01", required: true },
+          { key: "effective_from", label: "Effective From", type: "date", required: true },
         ],
       },
     ],
@@ -286,10 +368,20 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
         slug: "approval-rules",
         table: "approval_rules",
         title: "Approval Rules",
-        description: "Discount thresholds that trigger a mandatory approval before a quote/booking can be shared or confirmed.",
+        description:
+          "Who approves a discount: needed when the amount is above the threshold; the highest threshold crossed decides the role. Stage blank = direct bookings.",
         fields: [
           { key: "outlet_id", label: "Outlet (blank = org-wide)", type: "foreign_key", foreignTable: "outlets" },
-          { key: "discount_threshold", label: "Discount Threshold", type: "number", step: "0.01", required: true },
+          {
+            key: "stage",
+            label: "Quote stage",
+            type: "select",
+            options: [
+              { value: "with_schemes", label: "Company schemes" },
+              { value: "with_dealer_discount", label: "Additional dealer discount" },
+            ],
+          },
+          { key: "discount_threshold", label: "Above amount (₹)", type: "number", step: "0.01", required: true },
           { key: "required_role_id", label: "Required Approver Role", type: "foreign_key", foreignTable: "roles", required: true },
         ],
       },
@@ -305,7 +397,8 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
         orderBy: "name",
         fields: [
           { key: "name", label: "Name", type: "text", required: true },
-          { key: "dealer_code", label: "Dealer Code (CTDMS)", type: "text" },
+          { key: "dealer_code", label: "Dealer Code", type: "text" },
+          { key: "ctdms_dealer_code", label: "CTDMS Dealer Code (e.g. JP05A)", type: "text" },
           { key: "city", label: "City", type: "text" },
           { key: "state", label: "State", type: "text" },
           { key: "address", label: "Address", type: "textarea" },
@@ -325,6 +418,49 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
           { key: "role_id", label: "Role", type: "foreign_key", foreignTable: "roles", required: true },
           { key: "outlet_id", label: "Outlet", type: "foreign_key", foreignTable: "outlets" },
           { key: "reports_to_employee_id", label: "Reports To", type: "foreign_key", foreignTable: "employees", foreignLabelKey: "name" },
+          { key: "ctdms_name", label: "Name in CTDMS (Sales Officer / Team Leader)", type: "text", hideInTable: true },
+          { key: "is_active", label: "Active", type: "boolean" },
+        ],
+      },
+      {
+        slug: "hr-checklist",
+        table: "hr_task_templates",
+        title: "HR Checklist Items",
+        description:
+          "Items copied onto each new joiner's onboarding (or a leaver's offboarding) checklist. Changes apply to checklists started afterwards.",
+        orderBy: "sort_order",
+        fields: [
+          {
+            key: "kind",
+            label: "Checklist",
+            type: "select",
+            required: true,
+            options: [
+              { value: "onboarding", label: "Onboarding" },
+              { value: "offboarding", label: "Offboarding" },
+            ],
+          },
+          { key: "title", label: "Item", type: "text", required: true },
+          { key: "sort_order", label: "Order", type: "number", required: true },
+          { key: "sales_staff_only", label: "Sales line only (Outlet Head to Consultant)", type: "boolean" },
+          { key: "is_active", label: "Active", type: "boolean" },
+        ],
+      },
+    ],
+  },
+  {
+    title: "Finance",
+    entities: [
+      {
+        slug: "financiers",
+        table: "financiers",
+        title: "Financiers",
+        description: "Banks and NBFCs for finance cases. Captive = Toyota Financial Services (subvention schemes).",
+        orderBy: "name",
+        fields: [
+          { key: "name", label: "Name", type: "text", required: true },
+          { key: "short_name", label: "Short name", type: "text" },
+          { key: "is_captive", label: "Captive (TFS)", type: "boolean" },
           { key: "is_active", label: "Active", type: "boolean" },
         ],
       },

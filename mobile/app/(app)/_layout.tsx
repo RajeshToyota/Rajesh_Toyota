@@ -31,11 +31,19 @@ export default function AppLayout() {
   return (
     <Stack screenOptions={{ headerShown: true, headerBackTitle: "Back" }}>
       <Stack.Screen name="index" options={{ title: "Rajesh Toyota" }} />
+      <Stack.Screen name="enquiries/index" options={{ title: "My Enquiries" }} />
+      <Stack.Screen name="enquiries/new" options={{ title: "New Enquiry" }} />
       <Stack.Screen name="quotes/index" options={{ title: "My Quotes" }} />
       <Stack.Screen name="quotes/new" options={{ title: "New Quote" }} />
+      <Stack.Screen name="quotes/[id]" options={{ title: "Quote" }} />
       <Stack.Screen name="bookings/index" options={{ title: "My Bookings" }} />
       <Stack.Screen name="bookings/new" options={{ title: "New Booking" }} />
       <Stack.Screen name="bookings/from-quote/[quoteId]" options={{ title: "Proceed to Booking" }} />
+      <Stack.Screen name="bookings/[id]/index" options={{ title: "Booking" }} />
+      <Stack.Screen name="bookings/[id]/docket" options={{ title: "Welcome Docket" }} />
+      <Stack.Screen name="bookings/[id]/finance" options={{ title: "Finance" }} />
+      <Stack.Screen name="bookings/[id]/delivery" options={{ title: "Delivery" }} />
+      <Stack.Screen name="bookings/[id]/hold-cancel" options={{ title: "Hold or Cancel" }} />
       <Stack.Screen name="approvals/index" options={{ title: "Pending Approvals" }} />
       <Stack.Screen name="profile" options={{ title: "Profile" }} />
     </Stack>
