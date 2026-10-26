@@ -160,6 +160,16 @@ export default function BookingScreen() {
           </Pressable>
         )}
 
+        <Pressable
+          onPress={() => router.push(`/(app)/bookings/${booking.id}/hold-cancel`)}
+          className="rounded-xl border border-slate-200 p-4"
+        >
+          <Text className="font-medium text-slate-900">Hold or cancel</Text>
+          <Text className="mt-1 text-sm text-slate-500">
+            {booking.status === "cancelled" ? "Cancelled — see refunds." : "Put the booking on hold, or request a cancellation."}
+          </Text>
+        </Pressable>
+
         {booking.priced_snapshot && <PriceSummary pricing={booking.priced_snapshot} title="Booked Price" />}
       </ScrollView>
     </SafeAreaView>

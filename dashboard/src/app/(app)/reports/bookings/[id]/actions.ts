@@ -87,3 +87,43 @@ export async function completeDelivery(fd: FormData) {
   const bookingId = str(fd, "booking_id");
   await call("complete_delivery", { p_booking_id: bookingId, p_override_reason: str(fd, "override_reason") }, bookingId);
 }
+
+export async function holdBooking(fd: FormData) {
+  const bookingId = str(fd, "booking_id");
+  await call("hold_booking", { p_booking_id: bookingId, p_reason: str(fd, "reason"), p_expected_resume: str(fd, "expected_resume") }, bookingId);
+}
+
+export async function resumeBooking(fd: FormData) {
+  const bookingId = str(fd, "booking_id");
+  await call("resume_booking", { p_booking_id: bookingId, p_note: str(fd, "note") }, bookingId);
+}
+
+export async function requestCancellation(fd: FormData) {
+  const bookingId = str(fd, "booking_id");
+  await call(
+    "request_cancellation",
+    { p_booking_id: bookingId, p_reason_category: str(fd, "reason_category"), p_reason: str(fd, "reason"), p_request_path: null },
+    bookingId,
+  );
+  revalidatePath("/cancellations");
+}
+
+export async function decideCancellation(fd: FormData) {
+  const bookingId = str(fd, "booking_id");
+  await call(
+    "decide_cancellation",
+    { p_cancellation_id: str(fd, "cancellation_id"), p_approve: str(fd, "approve") === "true", p_note: str(fd, "note") },
+    bookingId,
+  );
+  revalidatePath("/cancellations");
+}
+
+export async function markRefundPaid(fd: FormData) {
+  const bookingId = str(fd, "booking_id");
+  await call(
+    "mark_refund_paid",
+    { p_refund_id: str(fd, "refund_id"), p_cheque_no: str(fd, "cheque_no"), p_paid_on: str(fd, "paid_on"), p_bank_name: str(fd, "bank_name") },
+    bookingId,
+  );
+  revalidatePath("/cancellations");
+}

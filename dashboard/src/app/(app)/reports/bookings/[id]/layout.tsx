@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-// One booking's file: the Welcome Docket, payments, insurance and RTO, and delivery.
+// One booking's file: the Welcome Docket, payments, insurance and RTO, delivery, and hold / cancel.
 export default async function BookingFileLayout({ children, params }: { children: React.ReactNode; params: Promise<{ id: string }> }) {
   const { id } = await params;
   const base = `/reports/bookings/${id}`;
@@ -9,6 +9,7 @@ export default async function BookingFileLayout({ children, params }: { children
     { href: `${base}/payments`, label: "Payments" },
     { href: `${base}/insurance-rto`, label: "Insurance & RTO" },
     { href: `${base}/delivery`, label: "Delivery" },
+    { href: `${base}/hold-cancel`, label: "Hold & Cancel" },
   ];
   return (
     <div>

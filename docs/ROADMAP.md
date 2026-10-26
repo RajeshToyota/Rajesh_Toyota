@@ -65,6 +65,32 @@ This plan extends the existing codebase. It does not replace it.
 - **Employees are created from the booking dump for now.** That means 30 SOs and 6 TLs at their branch, with SO → TL reporting. The full employee sheet will enrich them later. The employee file was not attached, so it still needs to be sent.
 - **Only orders with status Booked or Accepted are imported** as open bookings.
 
+## Phase 13 — status: live (26 Oct)
+
+Hold, cancellation and refunds (`20261101000001_hold_cancel.sql`). The booking file has a *Hold &
+Cancel* tab, and `/cancellations` lists cancellations waiting for approval, refunds to pay and bookings
+on hold.
+- **History:** every booking status change is logged in `booking_events`, along with each hold, resume,
+  cancellation request and decision.
+- **Hold:**
+  - The consultant (or their line, or the branch back office) puts a booking on hold with a reason and an
+    optional expected-back date.
+  - Any allotted car is released, and FIFO skips the booking until it is resumed. Delivery is blocked
+    while on hold.
+  - Not allowed while the car is with Accounts for billing (pull it back first), or once invoiced.
+- **Cancellation:**
+  - The consultant requests it with a reason (finance not approved, bought elsewhere, delivery delay,
+    price, changed mind, personal, other) and photographs the customer's written request in the app.
+  - The branch's Outlet Head (or the Business Head) approves or rejects it. Approval withdraws any billing
+    request, releases the car, closes the hold, rejects an open finance case and marks the booking
+    cancelled.
+  - Once the car is invoiced it is a sales return, not a cancellation, so the request is refused.
+- **Refunds** (docket T&C):
+  - Money disbursed by a financier goes back to that financier; the customer's other cleared receipts go
+    back to the customer.
+  - Both are due by cheque within 7 working days (Mon–Sat). Accounts marks each one paid with the cheque
+    number and date; overdue refunds are shown in red.
+
 ## Phase 12 — status: live (26 Oct)
 
 Payments, insurance, RTO and delivery (`20261031000001_payments_delivery.sql`). The booking page on the
