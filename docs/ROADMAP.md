@@ -65,6 +65,39 @@ This plan extends the existing codebase. It does not replace it.
 - **Employees are created from the booking dump for now.** That means 30 SOs and 6 TLs at their branch, with SO → TL reporting. The full employee sheet will enrich them later. The employee file was not attached, so it still needs to be sent.
 - **Only orders with status Booked or Accepted are imported** as open bookings.
 
+## Phase 9 — status: live (26 Oct)
+
+Digital Welcome Docket, one per booking (`20261028000001_welcome_dockets.sql`), filled in on the
+mobile app from the booking screen or straight after confirming a booking.
+- **Seven steps:**
+  1. Contact details (Order Booking Form, p.7).
+  2. Registration & Delivery Details (p.25).
+  3. Accessories Order Form (p.13). Items and prices come from the accessories master, not the app,
+     and the 10% advance is worked out.
+  4. Checklist of Documents (p.21). Each document is photographed (camera or gallery) or marked as
+     collected on paper.
+  5. U Trust / Toyota Connect / Extended Warranty / Smiles Plus interest, and the Referral Form (p.38).
+  6. Order and RTO terms (copied word for word from the docket), plus customer and Sales Consultant
+     signatures.
+  7. Complete.
+- **Completion.** `complete_welcome_docket` lists anything still missing:
+  - contact and registration details, and the financier when the purchase is financed
+  - photo, Aadhaar and PAN / Voter ID
+  - both terms ticks and both signatures
+- **Lock.** A complete docket is read-only. An Outlet Head or above can reopen it with a reason.
+- **PDF.** The customer's PDF is shared from the phone, and a copy is kept in the private
+  `booking-documents` bucket under the booking's folder. Files are visible to whoever can see the
+  booking.
+- **Customer on the booking.** Bookings now carry the customer's name and mobile. A booking from a quote
+  copies them, and the enquiry's customer, from the quote.
+- **Dashboard.** The bookings report shows each docket's status and links to a docket page, which has
+  the details, document photos and the PDF (short-lived links).
+- **New mobile dependency.** The document photos need `expo-image-picker`. `mobile/package-lock.json`
+  still contains merge-conflict markers from an earlier commit, so run `npx expo install` locally to
+  regenerate it.
+- **Next.** Phase 10 will require a complete docket before a car can be sent for billing.
+- **Tests:** `supabase/tests/welcome_dockets.sql`. Mobile has not been run on a device yet.
+
 ## Phase 8 — status: live (26 Oct)
 
 Staged quotes with stage approvals (`20261027000001_staged_quotes.sql`).

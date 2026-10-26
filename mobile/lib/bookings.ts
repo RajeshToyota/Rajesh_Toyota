@@ -11,6 +11,9 @@ import type { BookingForm } from "@/hooks/use-booking-form";
 export async function confirmBooking(params: {
   quoteId?: string;
   enquiryId?: string | null;
+  // A booking from a quote takes the quote's customer in the database; a direct booking sends it.
+  customerName?: string | null;
+  customerMobile?: string | null;
   outletId: string;
   employeeId: string;
   selections: QuoteSelections;
@@ -26,6 +29,8 @@ export async function confirmBooking(params: {
     .insert({
       quote_id: params.quoteId ?? null,
       enquiry_id: params.enquiryId ?? null,
+      customer_name: params.customerName || null,
+      customer_mobile: params.customerMobile || null,
       outlet_id: params.outletId,
       employee_id: params.employeeId,
       order_booking_no: params.orderBookingNo ?? null,

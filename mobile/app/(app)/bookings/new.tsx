@@ -39,6 +39,7 @@ export default function NewBookingScreen() {
   const [confirming, setConfirming] = useState(false);
   const [approvalNeeded, setApprovalNeeded] = useState(false);
   const [approvalRoleName, setApprovalRoleName] = useState<string | null>(null);
+  const [bookingId, setBookingId] = useState<string | null>(null);
   const [signatureCaptured, setSignatureCaptured] = useState(false);
 
   async function handleConfirm() {
@@ -60,6 +61,8 @@ export default function NewBookingScreen() {
       }
 
       const { bookingId, approvalNeeded, approvalRoleName } = await confirmBooking({
+        customerName,
+        customerMobile: customerMobile || customerPhone,
         outletId: employee.outletId!,
         employeeId: employee.id,
         selections,
@@ -85,6 +88,7 @@ export default function NewBookingScreen() {
 
       setApprovalNeeded(approvalNeeded);
       setApprovalRoleName(approvalRoleName);
+      setBookingId(bookingId);
       setStep(DONE_STEP);
     } catch (e: any) {
       setPricingError(e.message ?? "Failed to confirm this booking");
@@ -198,8 +202,16 @@ export default function NewBookingScreen() {
             </View>
           )}
 
-          <View className="items-center rounded-lg bg-slate-900 py-3" onTouchEnd={() => router.replace("/(app)/bookings")}>
-            <Text className="font-medium text-white">View My Bookings</Text>
+          {bookingId && (
+            <View
+              className="items-center rounded-lg bg-slate-900 py-3"
+              onTouchEnd={() => router.replace(`/(app)/bookings/${bookingId}/docket`)}
+            >
+              <Text className="font-medium text-white">Fill Welcome Docket</Text>
+            </View>
+          )}
+          <View className="items-center rounded-lg border border-slate-300 py-3" onTouchEnd={() => router.replace("/(app)/bookings")}>
+            <Text className="font-medium text-slate-700">View My Bookings</Text>
           </View>
         </View>
       )}

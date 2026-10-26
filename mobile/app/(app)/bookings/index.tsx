@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { View, Text, FlatList, Pressable, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { supabase } from "@/lib/supabase";
 
 type BookingRow = {
@@ -11,7 +11,15 @@ type BookingRow = {
   created_at: string;
   priced_as_of: string | null;
   order_booking_no: string | null;
+  customer_name: string | null;
+  welcome_dockets: { status: string } | { status: string }[] | null;
 };
+
+function docketLabel(row: BookingRow) {
+  const d = Array.isArray(row.welcome_dockets) ? row.welcome_dockets[0] : row.welcome_dockets;
+  if (!d) return "Docket not started";
+  return d.status === "complete" ? "Docket complete" : "Docket in progress";
+}
 
 const STATUSES = ["all", "booked", "allocated", "delivered", "cancelled"] as const;
 
@@ -37,7 +45,7 @@ export default function MyBookingsScreen() {
   const load = useCallback(async () => {
     let query = supabase
       .from("bookings")
-      .select("id, total_amount, status, created_at, priced_as_of, order_booking_no")
+      .select("id, total_amount, status, created_at, priced_as_of, order_booking_no, customer_name, welcome_dockets(status)")
       .order("created_at", { ascending: false });
 
     if (filter !== "all") query = query.eq("status", filter);
@@ -79,18 +87,19 @@ export default function MyBookingsScreen() {
         contentContainerClassName="p-4 gap-3"
         ListEmptyComponent={<Text className="mt-8 text-center text-slate-400">No bookings yet.</Text>}
         renderItem={({ item }) => (
-          <View className="rounded-xl border border-slate-200 p-4">
+          <Pressable onPress={() => router.push(`/(app)/bookings/${item.id}`)} className="rounded-xl border border-slate-200 p-4">
             <View className="flex-row items-center justify-between">
-              <Text className="font-medium text-slate-900">{item.order_booking_no ?? "Booking"}</Text>
+              <Text className="font-medium text-slate-900">{item.customer_name ?? item.order_booking_no ?? "Booking"}</Text>
               <StatusBadge status={item.status} />
             </View>
             <Text className="mt-1 text-lg font-semibold text-slate-900">
               {item.total_amount ? `₹${Math.round(item.total_amount).toLocaleString("en-IN")}` : "—"}
             </Text>
             <Text className="mt-1 text-xs text-slate-400">
-              Priced {item.priced_as_of ? new Date(item.priced_as_of).toLocaleDateString() : "—"}
+              {item.order_booking_no ? `${item.order_booking_no} · ` : ""}Priced{" "}
+              {item.priced_as_of ? new Date(item.priced_as_of).toLocaleDateString() : "—"} · {docketLabel(item)}
             </Text>
-          </View>
+          </Pressable>
         )}
       />
     </SafeAreaView>

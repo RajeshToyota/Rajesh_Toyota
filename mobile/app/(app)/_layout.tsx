@@ -39,6 +39,8 @@ export default function AppLayout() {
       <Stack.Screen name="bookings/index" options={{ title: "My Bookings" }} />
       <Stack.Screen name="bookings/new" options={{ title: "New Booking" }} />
       <Stack.Screen name="bookings/from-quote/[quoteId]" options={{ title: "Proceed to Booking" }} />
+      <Stack.Screen name="bookings/[id]/index" options={{ title: "Booking" }} />
+      <Stack.Screen name="bookings/[id]/docket" options={{ title: "Welcome Docket" }} />
       <Stack.Screen name="approvals/index" options={{ title: "Pending Approvals" }} />
       <Stack.Screen name="profile" options={{ title: "Profile" }} />
     </Stack>
