@@ -65,6 +65,33 @@ This plan extends the existing codebase. It does not replace it.
 - **Employees are created from the booking dump for now.** That means 30 SOs and 6 TLs at their branch, with SO → TL reporting. The full employee sheet will enrich them later. The employee file was not attached, so it still needs to be sent.
 - **Only orders with status Booked or Accepted are imported** as open bookings.
 
+## Phase 11 — status: live (26 Oct)
+
+Finance cases (`20261030000001_finance_cases.sql`).
+- **Stages:** Documents pending → Logged in → Sanctioned → DO received → Disbursed, or Rejected. A case
+  moves one stage at a time, and each move is logged.
+  - *Logged in* needs every required document for the applicant's checklist.
+  - *Sanctioned* needs loan amount, tenure and rate. The EMI is worked out.
+  - *DO received* needs DO number, amount and date.
+  - *Disbursed* needs the disbursed amount and date.
+  - A rejection needs the financier's reason. The case stays as history and a new one can be opened.
+- **Document checklists** come from the docket's finance pages (pp.19 and 21), for salaried,
+  self-employed and company applicants. Each item is photographed or marked collected on paper, and
+  files go to `booking-documents/<booking>/finance/`.
+- **Who:**
+  - The new **Finance Executive** role (rank 6, so it can never approve anything) works every case at
+    its branch, as can the Outlet Head and above.
+  - The Sales Consultant opens the case and collects the documents on mobile (*Finance* on the booking
+    screen), and sees its stage.
+- **Billing:** finance is tracked only and does not hold up billing (the business's decision).
+- **Financiers** are a master list under Admin → Finance: TFS (captive) plus the banks on the
+  branches' CTDMS orders.
+- **Dashboard:**
+  - `/finance` is a pipeline board by stage.
+  - Each case page has the loan details, stage moves, the document checklist with photo links, and the
+    history.
+- **Tests:** `supabase/tests/finance_cases.sql`. Mobile has not been run on a device yet.
+
 ## Phase 10 — status: live (26 Oct)
 
 Stock, allotment and billing (`20261029000001_stock_allotment.sql`), on the dashboard under **Stock**.

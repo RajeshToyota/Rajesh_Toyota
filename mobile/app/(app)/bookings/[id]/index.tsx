@@ -5,6 +5,7 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { PriceSummary } from "@/components/price-summary";
 import { supabase } from "@/lib/supabase";
 import { findDocket, loadBooking, type Docket, type DocketBooking } from "@/lib/docket";
+import { financeStageLabel, loadCases, type FinanceCase } from "@/lib/finance";
 
 type Allotment = { allotted_at: string; vehicles: { vin: string; source: string } | { vin: string; source: string }[] | null };
 
@@ -13,16 +14,19 @@ export default function BookingScreen() {
   const [booking, setBooking] = useState<DocketBooking | null>(null);
   const [docket, setDocket] = useState<Docket | null>(null);
   const [allotment, setAllotment] = useState<Allotment | null>(null);
+  const [financeCase, setFinanceCase] = useState<FinanceCase | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [b, d, a] = await Promise.all([
+      const [b, d, a, f] = await Promise.all([
         loadBooking(id),
         findDocket(id),
         supabase.from("allotments").select("allotted_at, vehicles(vin, source)").eq("booking_id", id).is("released_at", null).maybeSingle(),
+        loadCases(id),
       ]);
+      setFinanceCase(f[0] ?? null);
       setBooking(b);
       setDocket(d);
       setAllotment((a.data as Allotment | null) ?? null);
@@ -121,6 +125,23 @@ export default function BookingScreen() {
             {docket?.reopened_reason && docket.status === "draft" && (
               <Text className="mt-1 text-sm text-amber-800">Reopened: {docket.reopened_reason}</Text>
             )}
+          </Pressable>
+        )}
+
+        {booking.status !== "cancelled" && (/financ/i.test(booking.mode_of_purchase ?? "") || financeCase) && (
+          <Pressable
+            onPress={() => router.push(`/(app)/bookings/${booking.id}/finance`)}
+            className="rounded-xl border border-slate-200 p-4"
+          >
+            <View className="flex-row items-center justify-between">
+              <Text className="font-medium text-slate-900">Finance</Text>
+              <Text className="text-sm text-slate-600">
+                {financeCase ? `${financeCase.financiers?.name ?? ""} · ${financeStageLabel(financeCase.status)}` : "No case yet"}
+              </Text>
+            </View>
+            <Text className="mt-1 text-sm text-slate-500">
+              {financeCase ? "Tap for documents and progress." : "Open a case and collect the loan documents."}
+            </Text>
           </Pressable>
         )}
 

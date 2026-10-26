@@ -425,6 +425,24 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
     ],
   },
   {
+    title: "Finance",
+    entities: [
+      {
+        slug: "financiers",
+        table: "financiers",
+        title: "Financiers",
+        description: "Banks and NBFCs for finance cases. Captive = Toyota Financial Services (subvention schemes).",
+        orderBy: "name",
+        fields: [
+          { key: "name", label: "Name", type: "text", required: true },
+          { key: "short_name", label: "Short name", type: "text" },
+          { key: "is_captive", label: "Captive (TFS)", type: "boolean" },
+          { key: "is_active", label: "Active", type: "boolean" },
+        ],
+      },
+    ],
+  },
+  {
     title: "Configuration",
     entities: [
       {

@@ -11,6 +11,7 @@ const extraLinks: { title: string; links: { href: string; label: string }[] }[] 
       { href: "/enquiries", label: "Enquiries" },
       { href: "/enquiries/new", label: "New Enquiry" },
       { href: "/crm-sync", label: "CTDMS Sync" },
+      { href: "/finance", label: "Finance Cases" },
     ],
   },
   {

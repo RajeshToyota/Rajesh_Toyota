@@ -182,7 +182,8 @@ export async function loadDocuments(docketId: string): Promise<DocketDocument[]>
   return (data ?? []) as DocketDocument[];
 }
 
-async function uploadFile(path: string, localUri: string, contentType: string) {
+// Uploads a local file into the booking's folder of the booking-documents bucket.
+export async function uploadBookingFile(path: string, localUri: string, contentType: string) {
   const response = await fetch(localUri);
   const blob = await response.blob();
   const { error } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType, upsert: true });
@@ -200,7 +201,7 @@ export async function addDocumentPhoto(params: {
   const contentType = params.mimeType || "image/jpeg";
   const ext = contentType === "image/png" ? "png" : contentType === "application/pdf" ? "pdf" : "jpg";
   const path = `${params.bookingId}/documents/${params.docType}-${Date.now()}.${ext}`;
-  await uploadFile(path, params.localUri, contentType);
+  await uploadBookingFile(path, params.localUri, contentType);
   const { error } = await supabase.from("docket_documents").insert({
     docket_id: params.docketId,
     doc_type: params.docType,
@@ -230,13 +231,13 @@ export async function saveSignature(
   localUri: string,
 ): Promise<Docket> {
   const path = `${bookingId}/signatures/${who}.png`;
-  await uploadFile(path, localUri, "image/png");
+  await uploadBookingFile(path, localUri, "image/png");
   return saveDocket(docketId, who === "customer" ? { customer_signature_path: path } : { consultant_signature_path: path });
 }
 
 export async function uploadDocketPdf(docketId: string, bookingId: string, localUri: string): Promise<string> {
   const path = `${bookingId}/welcome-docket.pdf`;
-  await uploadFile(path, localUri, "application/pdf");
+  await uploadBookingFile(path, localUri, "application/pdf");
   await saveDocket(docketId, { pdf_storage_path: path });
   return path;
 }
