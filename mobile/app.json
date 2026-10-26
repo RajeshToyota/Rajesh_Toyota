@@ -26,13 +26,7 @@
     },
     "plugins": [
       "expo-router",
-      [
-        "expo-image-picker",
-        {
-          "cameraPermission": "The app uses the camera to photograph the customer's documents for the Welcome Docket.",
-          "photosPermission": "The app reads photos you choose to attach the customer's documents to the Welcome Docket."
-        }
-      ]
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true
