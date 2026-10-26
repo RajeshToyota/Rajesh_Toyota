@@ -6,14 +6,20 @@ import { decideApproval } from "./actions";
 export function ApprovalActions({ approvalId }: { approvalId: string }) {
   const [comment, setComment] = useState("");
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   function submit(decision: "approved" | "rejected") {
     const formData = new FormData();
     formData.set("approval_id", approvalId);
     formData.set("decision", decision);
     formData.set("comment", comment);
-    startTransition(() => {
-      decideApproval(formData);
+    setError(null);
+    startTransition(async () => {
+      try {
+        await decideApproval(formData);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not save the decision");
+      }
     });
   }
 
@@ -41,6 +47,7 @@ export function ApprovalActions({ approvalId }: { approvalId: string }) {
           Reject
         </button>
       </div>
+      {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
 }

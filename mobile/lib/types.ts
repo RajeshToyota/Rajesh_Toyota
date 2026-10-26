@@ -21,6 +21,7 @@ export interface PricingResult {
   ex_showroom_price: number;
   color_extra_cost: number;
   scheme_discount_customer_facing: number;
+  dealer_discount?: number;
   tcs_rate_percentage: number;
   tcs_amount: number;
   rto_amount: number;
@@ -53,6 +54,7 @@ export interface QuoteSelections {
   accessory_ids?: string[];
   vas_product_ids?: string[];
   selected_scheme_line_item_ids?: string[];
+  dealer_discount?: number;
   has_exchange?: boolean;
   has_scrap?: boolean;
   as_of_date?: string;

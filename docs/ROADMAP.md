@@ -65,6 +65,35 @@ This plan extends the existing codebase. It does not replace it.
 - **Employees are created from the booking dump for now.** That means 30 SOs and 6 TLs at their branch, with SO → TL reporting. The full employee sheet will enrich them later. The employee file was not attached, so it still needs to be sent.
 - **Only orders with status Booked or Accepted are imported** as open bookings.
 
+## Phase 8 — status: live (26 Oct)
+
+Staged quotes with stage approvals (`20261027000001_staged_quotes.sql`).
+- **Four stages:** Basic → With company schemes → With additional dealer discount → Final.
+  - A new quote always starts at *Basic*, with no schemes and no discount.
+  - Stages move only through `submit_quote_stage` and `finalize_quote`. Direct edits to the stage,
+    schemes or discount are refused, and once past Basic the vehicle and add-ons are locked.
+  - A stage must be approved before the next one, or before Final. Re-submitting a stage replaces its
+    pending request.
+  - Every step is kept in `quote_versions`, so the history and each stage's price stay on record.
+- **Dealer discount** is a new `calculate_price` input. It comes off the price before TCS and out of
+  dealer margin.
+- **Approval rules** (editable in *Approval Rules* on the dashboard; an approval is needed when the
+  amount is **above** the threshold, and the highest threshold crossed decides):
+  - Company schemes: above ₹0 → Team Leader.
+  - Dealer discount: above ₹0 → Outlet Head; above ₹25,000 → Business Head.
+  - Direct bookings (no quote) keep the old scheme-discount rules.
+- **Approvals are decided only through `decide_approval`.** It checks the approver's rank and line,
+  and nobody can approve their own request. Approvals can no longer be inserted or updated directly;
+  before this, a Sales Consultant could approve their own request.
+- **Booking** needs a *Final* quote, and copies its schemes and dealer discount.
+- **Mobile:** the new quote screen ends at the basic price, then opens the quote screen. That screen
+  has the stage tracker, scheme picks, dealer discount, Finalise, a WhatsApp/PDF share titled for the
+  stage, and Proceed to Booking. The Approvals screen lists only requests the user can decide.
+- **Dashboard:** the approvals report shows the stage and customer and decides through the RPC.
+- **Deferred:** the scheme-master upgrades (suffix/fuel scoping, % caps, finance-company and
+  eligibility rules, bulk slabs).
+- **Tests:** `supabase/tests/staged_quotes.sql`. Mobile has not been run on a device yet.
+
 ## Phase 7 — status: live (26 Oct)
 
 CTDMS daily sync, on the dashboard at `/crm-sync`, for back office (Head Customer Relations and above).

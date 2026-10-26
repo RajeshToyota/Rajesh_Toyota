@@ -11,6 +11,8 @@ interface QuoteDocumentData {
   outletName: string;
   employeeName: string;
   pricing: PricingResult;
+  // Which stage of the staged quote this document shows, e.g. "Final Offer".
+  title?: string;
 }
 
 function formatInr(amount: number): string {
@@ -30,7 +32,7 @@ export function buildQuoteHtml(data: QuoteDocumentData): string {
       <head><meta charset="utf-8" /></head>
       <body style="font-family: Helvetica, Arial, sans-serif; padding: 24px; color: #0f172a;">
         <h1 style="font-size: 20px; margin-bottom: 4px;">Rajesh Toyota</h1>
-        <p style="color:#64748b; margin-top:0;">Vehicle Quotation — indicative, priced as of ${new Date(data.pricing.priced_as_of).toLocaleDateString()}</p>
+        <p style="color:#64748b; margin-top:0;">${data.title ?? "Vehicle Quotation"} — indicative, priced as of ${new Date(data.pricing.priced_as_of).toLocaleDateString()}</p>
 
         <table style="width:100%; margin-top: 16px; font-size: 13px;">
           <tr><td style="color:#64748b; padding:2px 0;">Customer</td><td style="text-align:right;">${data.customerName}</td></tr>
@@ -89,7 +91,7 @@ export async function shareQuotePdfNative(localUri: string) {
 
 export function buildWhatsAppMessage(data: QuoteDocumentData): string {
   const lines = [
-    `*Rajesh Toyota — Vehicle Quotation*`,
+    `*Rajesh Toyota — ${data.title ?? "Vehicle Quotation"}*`,
     ``,
     `Customer: ${data.customerName}`,
     `Vehicle: ${data.variantName} (${data.colorName})`,

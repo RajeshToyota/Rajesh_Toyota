@@ -62,6 +62,11 @@ export default function ProceedToBookingScreen() {
         return;
       }
       setQuote(quoteRow);
+      if (quoteRow.current_stage !== "final") {
+        setError("Finalise this quote before booking it: open the quote and tap Finalise.");
+        setStep("error");
+        return;
+      }
 
       let scrap: QuoteSelections["scrap"] = null;
       if (quoteRow.scrap_certificate_id) {
@@ -87,6 +92,7 @@ export default function ProceedToBookingScreen() {
         accessory_ids: quoteRow.accessory_ids ?? [],
         vas_product_ids: quoteRow.vas_product_ids ?? [],
         selected_scheme_line_item_ids: quoteRow.selected_scheme_line_item_ids ?? [],
+        dealer_discount: Number(quoteRow.dealer_discount ?? 0),
         has_exchange: true, // the quote was already priced with whatever exchange context applied
         has_scrap: !!scrap,
       };

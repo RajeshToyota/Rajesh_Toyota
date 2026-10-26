@@ -1,14 +1,13 @@
 import { supabase } from "@/lib/supabase";
-import { findApprovalRequirement, createApprovalRequest } from "@/lib/approvals";
+import { requestBookingApproval } from "@/lib/approvals";
 import type { PricingResult, QuoteSelections } from "@/lib/types";
 import type { BookingForm } from "@/hooks/use-booking-form";
 
 // Confirming always creates the bookings row (this is the persisted record of what was agreed),
-// per spec 6.2 step 6. When the discount crosses an approval threshold, a pending approvals row
-// is attached to that booking alongside it, same as the quote flow's block-until-approved
-// behavior — the schema has no "pending" booking status to withhold the row itself on, so the
-// gate is enforced on top of the booked record rather than before it: a Team Leader/Outlet Head
-// must clear the pending approval before the booking can move past `booked` (allocated/delivered).
+// per spec 6.2 step 6. A booking made from a final staged quote carries that quote's approved
+// schemes and dealer discount (the database copies them). A direct booking asks for approval of
+// its scheme discount after the row exists; the schema has no "pending" booking status, so the gate
+// sits on top of the booked record: the approval must clear before it can move past `booked`.
 export async function confirmBooking(params: {
   quoteId?: string;
   enquiryId?: string | null;
@@ -55,23 +54,11 @@ export async function confirmBooking(params: {
 
   if (insertError) throw new Error(insertError.message);
 
-  const requirement = await findApprovalRequirement(
-    params.outletId,
-    params.pricing.scheme_discount_customer_facing,
-  );
-
-  if (requirement) {
-    await createApprovalRequest({
-      bookingId: inserted.id,
-      requestedByEmployeeId: params.employeeId,
-      requiredRoleId: requirement.requiredRoleId,
-      discountAmount: params.pricing.scheme_discount_customer_facing,
-    });
-  }
+  const { approvalRequired, requiredRole } = await requestBookingApproval(inserted.id);
 
   return {
     bookingId: inserted.id,
-    approvalNeeded: !!requirement,
-    approvalRoleName: requirement?.requiredRoleName ?? null,
+    approvalNeeded: approvalRequired,
+    approvalRoleName: requiredRole,
   };
 }

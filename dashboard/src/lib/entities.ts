@@ -368,10 +368,20 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
         slug: "approval-rules",
         table: "approval_rules",
         title: "Approval Rules",
-        description: "Discount thresholds that trigger a mandatory approval before a quote/booking can be shared or confirmed.",
+        description:
+          "Who approves a discount: needed when the amount is above the threshold; the highest threshold crossed decides the role. Stage blank = direct bookings.",
         fields: [
           { key: "outlet_id", label: "Outlet (blank = org-wide)", type: "foreign_key", foreignTable: "outlets" },
-          { key: "discount_threshold", label: "Discount Threshold", type: "number", step: "0.01", required: true },
+          {
+            key: "stage",
+            label: "Quote stage",
+            type: "select",
+            options: [
+              { value: "with_schemes", label: "Company schemes" },
+              { value: "with_dealer_discount", label: "Additional dealer discount" },
+            ],
+          },
+          { key: "discount_threshold", label: "Above amount (₹)", type: "number", step: "0.01", required: true },
           { key: "required_role_id", label: "Required Approver Role", type: "foreign_key", foreignTable: "roles", required: true },
         ],
       },
