@@ -65,6 +65,41 @@ This plan extends the existing codebase. It does not replace it.
 - **Employees are created from the booking dump for now.** That means 30 SOs and 6 TLs at their branch, with SO → TL reporting. The full employee sheet will enrich them later. The employee file was not attached, so it still needs to be sent.
 - **Only orders with status Booked or Accepted are imported** as open bookings.
 
+## Phase 14 — status: live (26 Oct)
+
+Employee management (`20261102000001_employee_management.sql`). The dashboard has a *People* section:
+*Employees* lists active staff and leavers, and each person has a page with their details, CRM login,
+private details, documents, checklists, assets and offboarding.
+- **Who can do what:**
+  - A new **HR** role adds and edits staff at every branch, as do the Business Head and Admin.
+  - HR can never create, promote or edit a Business Head or Admin, or change its own role or login.
+  - Outlet Heads see their branch's staff, checklists and assets, read-only. HR sees no customer data.
+- **Private details:** PAN, the last 4 digits of the Aadhaar number, bank account, personal email and
+  addresses, plus the uploaded ID copies and letters. Only HR, the Business Head / Admin and the
+  employee can see them.
+- **Onboarding:** a new employee starts with a checklist: documents, letters, bank details, CRM login,
+  CTDMS ID (sales line only), SIM, laptop / phone, ID card and uniform, and training. The items are
+  editable under *HR Checklist Items*. "CRM login created" ticks itself when the login is linked. Staff
+  imported earlier can get a checklist from their page.
+- **CRM login:**
+  - *Send login invite* emails the employee a link to choose a password. The same email and
+    password work in the mobile app.
+  - When they already have a login, the button sends a set-password link instead.
+  - A user created by hand in Supabase Auth is linked to the employee with the same email once that
+    email is confirmed.
+  - Needs `SUPABASE_SERVICE_ROLE_KEY` on the dashboard server (see README).
+- **Assets:** laptop, phone, SIM, tablet, ID card, uniform or vehicle, issued and returned with dates,
+  serial number and condition. A serial number can't be with two people at once.
+- **Offboarding:**
+  - Shows what the person still holds: open enquiries, unbooked quotes, open bookings, direct reports
+    and assets.
+  - The open work goes to a chosen colleague, and direct reports move to the leaver's own manager.
+  - The exit date and reason are recorded, and the login stops opening any data. It is also blocked in
+    Supabase Auth when the service key is set.
+  - An offboarding checklist starts: hand-over and login closed tick themselves; "assets returned"
+    ticks when the last asset comes back; then CTDMS ID, full and final settlement, and relieving
+    letter.
+
 ## Phase 13 — status: live (26 Oct)
 
 Hold, cancellation and refunds (`20261101000001_hold_cancel.sql`). The booking file has a *Hold &

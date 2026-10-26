@@ -422,6 +422,30 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
           { key: "is_active", label: "Active", type: "boolean" },
         ],
       },
+      {
+        slug: "hr-checklist",
+        table: "hr_task_templates",
+        title: "HR Checklist Items",
+        description:
+          "Items copied onto each new joiner's onboarding (or a leaver's offboarding) checklist. Changes apply to checklists started afterwards.",
+        orderBy: "sort_order",
+        fields: [
+          {
+            key: "kind",
+            label: "Checklist",
+            type: "select",
+            required: true,
+            options: [
+              { value: "onboarding", label: "Onboarding" },
+              { value: "offboarding", label: "Offboarding" },
+            ],
+          },
+          { key: "title", label: "Item", type: "text", required: true },
+          { key: "sort_order", label: "Order", type: "number", required: true },
+          { key: "sales_staff_only", label: "Sales line only (Outlet Head to Consultant)", type: "boolean" },
+          { key: "is_active", label: "Active", type: "boolean" },
+        ],
+      },
     ],
   },
   {

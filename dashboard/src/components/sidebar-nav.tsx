@@ -27,6 +27,13 @@ const extraLinks: { title: string; links: { href: string; label: string }[] }[] 
     ],
   },
   {
+    title: "People",
+    links: [
+      { href: "/hr", label: "Employees" },
+      { href: "/hr/new", label: "Add Employee" },
+    ],
+  },
+  {
     title: "Reporting",
     links: [
       { href: "/reports/quotes", label: "Quotes" },
