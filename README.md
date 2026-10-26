@@ -50,7 +50,7 @@ engine in `supabase/migrations/` (Phase 1) for the shared `calculate_price` impl
   and staff names, so it goes to `data/private/` (git-ignored) and is applied straight to the
   database — never committed.
 - Local check: `PGHOST=/tmp PGPORT=54329 PGUSER=postgres scripts/localdb/apply.sh` then
-  `psql -d rt_crm_test -f supabase/tests/price_list_pricing.sql` (and `enquiries.sql`, `ctdms_sync.sql`, `staged_quotes.sql`, `welcome_dockets.sql`, `stock_allotment.sql`, `finance_cases.sql`, `payments_delivery.sql`, `hold_cancel.sql`, `employee_management.sql`).
+  `psql -d rt_crm_test -f supabase/tests/price_list_pricing.sql` (and `enquiries.sql`, `ctdms_sync.sql`, `staged_quotes.sql`, `welcome_dockets.sql`, `stock_allotment.sql`, `finance_cases.sql`, `payments_delivery.sql`, `hold_cancel.sql`, `employee_management.sql`, `pipeline_reports.sql`).
 - The live project was migrated with `apply_migration`, which stamps its own version numbers, so
   live version numbers differ from these filenames. `20260918000002`–`000004` are live as
   `20260918101317`, `20260918101353` and `20260918101905`.
@@ -74,5 +74,6 @@ engine in `supabase/migrations/` (Phase 1) for the shared `calculate_price` impl
   - `20261031000001` → `20261026074654` payments_delivery (Phase 12)
   - `20261101000001` → `20261026075429` hold_cancel (Phase 13)
   - `20261102000001` → `20261026081013` employee_management (Phase 14)
+  - `20261103000001` → `20261026091801` pipeline_reports (Phase 15)
   - The CTDMS staff (36) and open orders (265) were loaded with `execute_sql` and are not recorded as
     migrations.

@@ -65,6 +65,43 @@ This plan extends the existing codebase. It does not replace it.
 - **Employees are created from the booking dump for now.** That means 30 SOs and 6 TLs at their branch, with SO → TL reporting. The full employee sheet will enrich them later. The employee file was not attached, so it still needs to be sent.
 - **Only orders with status Booked or Accepted are imported** as open bookings.
 
+## Phase 15 — status: live (26 Oct)
+
+Pipeline dashboard and reports (`20261103000001_pipeline_reports.sql`). Every number is limited to what
+the viewer may see: a consultant sees their own, a Team Leader their team, an Outlet Head their branch,
+and the Business Head everything. Pick a period (this month, last month, last 90 days, this financial
+year or custom dates) and optionally one branch.
+- **Pipeline (the dashboard home page):**
+  - Headline numbers: enquiries (with test drives), bookings (and % of enquiries), billed, delivered,
+    cancelled, enquiries lost, open bookings.
+  - *This period, step by step*: enquiries, quotes made, quotes finalised, bookings, cars allotted,
+    billed, delivered.
+  - *Open right now*: each open booking counted once, at its stage: awaiting a car, allotted, with
+    Accounts, billed but not delivered, on hold, or cancellation asked. Open and quoted enquiries and
+    quotes waiting for approval are also shown. Each line links to the page where the work is done.
+  - *By branch* table.
+  - *Needs attention*:
+    - CTDMS entries still to do, and today's enquiry report not uploaded (back office only)
+    - money to collect on allotted cars, and cheques waiting for clearance
+    - overdue refunds and pending cancellations
+    - cars over 90 days old
+    - finance cases in progress, and quotes waiting for approval
+- **Reports → Consultants:** one row per person: enquiries, test drives, quotes, bookings, billed,
+  delivered, cancelled, lost, conversion, open enquiries and open bookings.
+- **Reports → Sources & Reasons:**
+  - Enquiry modes and how many have booked so far.
+  - Bookings by model.
+  - Why enquiries were lost, and why bookings were cancelled.
+- **Reports → Stock Ageing:** unbilled cars by branch and age since the TKM invoice (0–30, 31–60,
+  61–90, over 90 days), free vs allotted, with interest so far.
+- **Mobile home:** a "This month" card: enquiries, test drives, bookings, delivered, lost, conversion,
+  and what is open now.
+- **How dates are counted:**
+  - Imported CTDMS orders count on their CTDMS order date.
+  - "Lost" counts on the day the enquiry was marked lost (new `enquiries.lost_at`). Earlier lost
+    enquiries use their last update time.
+  - All dates are in IST.
+
 ## Phase 14 — status: live (26 Oct)
 
 Employee management (`20261102000001_employee_management.sql`). The dashboard has a *People* section:

@@ -1,16 +1,40 @@
-import { useEffect } from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { View, Text, Pressable, ScrollView, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Link } from "expo-router";
 import { useAuth } from "@/contexts/auth-context";
 import { flushPendingUploads } from "@/lib/upload-queue";
+import { loadMonthSummary, type MonthSummary } from "@/lib/pipeline";
+
+function Stat({ value, label }: { value: number; label: string }) {
+  return (
+    <View className="min-w-[30%] flex-1">
+      <Text className="text-xl font-semibold text-slate-900">{value}</Text>
+      <Text className="text-xs text-slate-500">{label}</Text>
+    </View>
+  );
+}
 
 export default function HomeScreen() {
   const { employee } = useAuth();
+  const [month, setMonth] = useState<MonthSummary | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      setMonth(await loadMonthSummary());
+    } catch {
+      // The summary is a convenience; the actions below work without it.
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
     flushPendingUploads().catch(() => {});
-  }, []);
+    refresh();
+  }, [refresh]);
 
   const actions = [
     { href: "/(app)/enquiries/new" as const, label: "New Enquiry", description: "Capture a walk-in, call or lead — the start of every sale" },
@@ -25,13 +49,30 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView edges={["bottom"]} className="flex-1 bg-slate-50">
-      <ScrollView contentContainerClassName="p-4 gap-3">
+      <ScrollView contentContainerClassName="p-4 gap-3" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
         <View className="mb-2">
           <Text className="text-lg font-semibold text-slate-900">Welcome, {employee?.name}</Text>
           <Text className="text-sm text-slate-500">
             {employee?.roleName} · {employee?.outletName ?? "No outlet assigned"}
           </Text>
         </View>
+
+        {month && (
+          <View className="rounded-xl border border-slate-200 bg-white p-4">
+            <Text className="text-sm font-medium text-slate-900">This month</Text>
+            <View className="mt-2 flex-row flex-wrap gap-y-3">
+              <Stat value={month.enquiries} label="Enquiries" />
+              <Stat value={month.testDrives} label="Test drives" />
+              <Stat value={month.bookings} label="Bookings" />
+              <Stat value={month.delivered} label="Delivered" />
+              <Stat value={month.lost} label="Lost" />
+              <Stat value={month.enquiries ? Math.round((month.bookings / month.enquiries) * 100) : 0} label="% converted" />
+            </View>
+            <Text className="mt-3 text-xs text-slate-500">
+              Open now: {month.openEnquiries} enquiries · {month.openBookings} bookings
+            </Text>
+          </View>
+        )}
 
         {actions.map((action) => (
           <Link key={action.href} href={action.href} asChild>
