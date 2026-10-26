@@ -102,9 +102,6 @@ These are settings and data, not code.
       `NEXT_PUBLIC_` prefix.
 - [ ] **Allow the set-password page as a redirect.** In Supabase → Authentication → URL
       Configuration, add `<dashboard address>/auth/set-password`.
-- [ ] **Mobile dependencies.** `mobile/package-lock.json` still has unresolved merge-conflict markers
-      from commit `1c1a276` ("Changes by Charvi"). Run `npx expo install` on a developer machine to
-      fix it and add `expo-image-picker`, then rebuild the app (a native rebuild, or Expo Go).
 - [ ] **Upload the first CTDMS stock statements** (transit and physical) under *Stock*, so allotment
       and stock ageing have data.
 - [ ] **Run the mobile app on a real phone.** It type-checks but has not been run on a device yet.
@@ -168,11 +165,13 @@ Environment:
 **Mobile**
 
 ```bash
-cd mobile && npx expo install && npx expo start
+cd mobile && npm install && npx expo start   # scan the QR code with Expo Go
 npx tsc --noEmit
 ```
 
-Environment: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+Environment: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` (in `mobile/.env`, git-ignored).
+The app is on **Expo SDK 58** (React Native 0.88), so it opens in the current Expo Go from the App
+Store / Play Store.
 
 **Database tests.** These need a local Postgres 16. The stubs stand in for Supabase's `auth` and
 `storage` schemas.

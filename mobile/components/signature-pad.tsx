@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState, type ComponentRef } from "react";
 import { View, PanResponder, Text, Pressable } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { captureRef } from "react-native-view-shot";
@@ -19,7 +19,7 @@ export const SignaturePad = forwardRef<SignaturePadHandle, { height?: number }>(
   { height = 200 },
   ref,
 ) {
-  const containerRef = useRef<View>(null);
+  const containerRef = useRef<ComponentRef<typeof View>>(null);
   const [strokes, setStrokes] = useState<Point[][]>([]);
   const currentStroke = useRef<Point[]>([]);
   const [, forceRender] = useState(0);
