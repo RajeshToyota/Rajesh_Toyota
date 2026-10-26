@@ -21,6 +21,7 @@ const extraLinks: { title: string; links: { href: string; label: string }[] }[] 
       { href: "/stock/match", label: "Match & Allot" },
       { href: "/stock/allotted", label: "Allotted" },
       { href: "/stock/billing", label: "Billing" },
+      { href: "/payments", label: "Payments" },
       { href: "/stock/ctdms", label: "CTDMS To-do" },
     ],
   },

@@ -243,8 +243,9 @@ end $$;
 select pg_temp.as_user('9');
 do $$
 begin
-  if (select count(*) from billing_requests) <> 1 or (select customer_name from bookings) <> 'Stock Buyer 1' then
-    raise exception 'Jaipur Accounts should see exactly its billing queue';
+  if (select count(*) from billing_requests) <> 1
+     or (select b.customer_name from billing_requests r join bookings b on b.id = r.booking_id) <> 'Stock Buyer 1' then
+    raise exception 'Jaipur Accounts should see its billing queue and the booking in it';
   end if;
   begin
     perform record_invoice((select id from t_ids where k = 'br1'), 'INV-1', current_date + 1, 2311480);

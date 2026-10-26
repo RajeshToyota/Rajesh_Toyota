@@ -65,6 +65,36 @@ This plan extends the existing codebase. It does not replace it.
 - **Employees are created from the booking dump for now.** That means 30 SOs and 6 TLs at their branch, with SO → TL reporting. The full employee sheet will enrich them later. The employee file was not attached, so it still needs to be sent.
 - **Only orders with status Booked or Accepted are imported** as open bookings.
 
+## Phase 12 — status: live (26 Oct)
+
+Payments, insurance, RTO and delivery (`20261031000001_payments_delivery.sql`). The booking page on the
+dashboard is now the booking's file, with tabs for *Welcome Docket*, *Payments*, *Insurance & RTO* and
+*Delivery*.
+- **Payments:**
+  - Accounts records receipts: cash, cheque, DD, UPI, bank transfer, card, exchange or scrap value.
+  - Cheques and DDs wait for *Cleared* or *Bounced*; the other modes count at once.
+  - The booking-form payment and an in-house finance disbursement become receipts automatically.
+  - Deal amount = booked on-road price + the docket's accessories order. Outstanding = deal − cleared
+    receipts.
+  - `/payments` lists cheques awaiting clearance and allotted cars with money outstanding.
+  - Orders imported from CTDMS show CTDMS's received amount as a reminder to record it.
+- **Insurance and RTO:**
+  - The branch's back office records the policy (insurer, number, cover, premium, IDV, period, policy
+    copy) and the registration (TR, permanent number, HSRP, RC, road tax).
+  - The tax-paid receipt is kept on file as scheme-claim proof.
+- **Delivery:**
+  - The consultant fills the checklist on mobile: PDI, accessories fitted, FASTag, documents explained,
+    demo, handover photo, customer signature.
+  - *Mark delivered* needs the invoice recorded, a policy number, a TR or permanent number, the full
+    checklist and nothing outstanding.
+  - A Business Head can deliver with money outstanding, with a reason; the amount is kept on record.
+- **Defaults chosen for this phase (easy to change):**
+  - Accounts records and clears payments.
+  - Back office records insurance and RTO.
+  - The consultant completes delivery.
+  - Only a Business Head overrides outstanding money.
+- **Tests:** `supabase/tests/payments_delivery.sql`. Mobile has not been run on a device yet.
+
 ## Phase 11 — status: live (26 Oct)
 
 Finance cases (`20261030000001_finance_cases.sql`).

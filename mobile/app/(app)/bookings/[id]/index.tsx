@@ -145,6 +145,21 @@ export default function BookingScreen() {
           </Pressable>
         )}
 
+        {["allocated", "ready_to_invoice", "delivered"].includes(booking.status) && (
+          <Pressable
+            onPress={() => router.push(`/(app)/bookings/${booking.id}/delivery`)}
+            className={`rounded-xl border p-4 ${booking.status === "delivered" ? "border-emerald-200 bg-emerald-50" : "border-slate-200"}`}
+          >
+            <View className="flex-row items-center justify-between">
+              <Text className="font-medium text-slate-900">Delivery</Text>
+              <Text className="text-sm text-slate-600">{booking.status === "delivered" ? "Delivered" : "Checklist"}</Text>
+            </View>
+            <Text className="mt-1 text-sm text-slate-500">
+              {booking.status === "delivered" ? "This car has been delivered." : "PDI, fitment, demo, handover photo and signature."}
+            </Text>
+          </Pressable>
+        )}
+
         {booking.priced_snapshot && <PriceSummary pricing={booking.priced_snapshot} title="Booked Price" />}
       </ScrollView>
     </SafeAreaView>
