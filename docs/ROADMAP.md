@@ -65,6 +65,61 @@ This plan extends the existing codebase. It does not replace it.
 - **Employees are created from the booking dump for now.** That means 30 SOs and 6 TLs at their branch, with SO → TL reporting. The full employee sheet will enrich them later. The employee file was not attached, so it still needs to be sent.
 - **Only orders with status Booked or Accepted are imported** as open bookings.
 
+## Phase 16 — Stock Allotment Pool — status: built, not yet live
+
+Automatic allotment, using the same logic as the Techwheels pool (`20261113000001_stock_allotment_pool.sql`). It ships switched **off**; until a Business Head switches it on (Stock → Allotment Pool → Settings), allotment works exactly as in Phase 10.
+
+**Pools**
+- There is one pool per variant + colour, shared by all branches.
+- Pool size = base + increment × (free cars − 1). It starts at 2 and 1, and is 0 when no car is free.
+- A car CTDMS has blocked for an order stays out of the pool; it goes through Match & Allot.
+
+**Who is in a pool**
+- Membership is FIFO by CTDMS order date (otherwise the booking date). The booking must be eligible as for Phase 10/13: booked, approved, not on hold, not closed in CTDMS.
+- An earlier booking pushes out the latest member who hasn't completed yet.
+- Members who have completed, and members an Outlet Head fast-tracked, are never pushed out.
+
+**Who gets the car**
+- Within a pool, whoever completes first wins:
+  - **Financed:** the live finance case reaches DO received.
+  - **Cash:** with no live finance case, cleared receipts reach 70% of the deal amount (vehicle plus the docket's accessories).
+- The oldest free car (yard first, then days since TKM invoice) goes to the first winner.
+
+**Self-healing**
+- A pool is rechecked once per variant + colour when a change commits. Changes to bookings, finance cases, receipts, holds, approvals, docket accessories and stock all trigger it.
+- A winner loses the car when any of these happens:
+  - the booking is held or cancelled;
+  - the DO is rejected;
+  - a cheque bounces below 70%;
+  - the car leaves the yard report;
+  - CTDMS invoices the car to another order.
+- Nothing is taken back once the car has been sent for billing.
+- A resumed booking keeps its booking date.
+
+**Dashboard (Stock tabs)**
+- **Pool:** overview, plus a per-pool detail page with the ranked bookings and a Hold action.
+- **Finance Queue:**
+  - In Pool shows the DO stage and the cash progress against 70%, with a WhatsApp nudge and Hold.
+  - Not in Pool lets an Outlet Head fast-track a booking.
+- **VNA Demand:** customers queued beyond the free stock, with ageing at 30 and 60 days, other free colours and nearby variants, and a WhatsApp offer.
+- **Audit log** and **Settings**.
+- **Allotted:** shows a Pool · DO / Cash chip, and has Change car (a swap with another customer asks for their replacement car).
+
+**Also**
+- CTDMS proposals now match the order number within the car's own branch. Order numbers repeat per dealer code.
+
+**Not built**
+- Price-difference blocking.
+- Cross-match variant pairs.
+- Other dealers' stock.
+
+**Rollout**
+1. Apply the migration.
+2. Review Stock → Allotment Pool with the pool off.
+3. Switch it on and watch the audit log.
+
+**Note:** bookings imported from CTDMS have no receipts in this CRM. They can only complete on the DO, or once their payments are recorded.
+
 ## Phase 15 — status: live (26 Oct)
 
 Pipeline dashboard and reports (`20261103000001_pipeline_reports.sql`). Every number is limited to what

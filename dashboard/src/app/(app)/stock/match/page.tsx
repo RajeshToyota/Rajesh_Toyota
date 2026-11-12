@@ -33,10 +33,12 @@ export default async function MatchPage() {
   const supabase = await createClient();
   const canAllot = canManageStock(employee);
 
-  const [{ data: fifo, error: fifoError }, { data: ctdms }] = await Promise.all([
+  const [{ data: fifo, error: fifoError }, { data: ctdms }, { data: poolConfig }] = await Promise.all([
     supabase.rpc("propose_fifo_allotments"),
     supabase.rpc("propose_ctdms_allotments"),
+    supabase.from("pool_config").select("enabled").maybeSingle(),
   ]);
+  const poolOn = Boolean((poolConfig as { enabled: boolean } | null)?.enabled);
   const fifoRows = (fifo ?? []) as FifoProposal[];
   const ctdmsRows = (ctdms ?? []) as CtdmsProposal[];
 
@@ -62,6 +64,13 @@ export default async function MatchPage() {
 
   return (
     <div>
+      {poolOn && (
+        <p className="mb-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          The allotment pool is on: a free car goes automatically to the first booking in its pool to get the DO or
+          clear the cash share (see <Link href="/stock/pool" className="underline">Allotment Pool</Link>). Confirming a
+          proposal here allots a car by hand and takes that booking out of its pool.
+        </p>
+      )}
       {!canAllot && (
         <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
           Only an Outlet Head or above can confirm allotments; you can review the proposals.

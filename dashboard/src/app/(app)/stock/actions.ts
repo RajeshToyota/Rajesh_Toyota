@@ -92,3 +92,53 @@ export async function mapColor(fd: FormData) {
     p_color_id: str(fd, "color_id"),
   });
 }
+
+// ===== Stock Allotment Pool (20261113000001_stock_allotment_pool.sql) =====
+
+export async function poolFastTrack(fd: FormData) {
+  await rpc("pool_fast_track", { p_booking_id: str(fd, "booking_id"), p_reason: str(fd, "reason") });
+}
+
+export async function poolHold(fd: FormData) {
+  await rpc("pool_member_hold", {
+    p_booking_id: str(fd, "booking_id"),
+    p_reason: str(fd, "reason"),
+    p_expected_resume: str(fd, "expected_resume"),
+  });
+}
+
+// Taking a car another customer holds needs a car for them in return; the database says whose it is.
+export async function poolChangeVehicle(fd: FormData) {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("pool_change_vehicle", {
+    p_booking_id: str(fd, "booking_id"),
+    p_new_vehicle_id: str(fd, "vehicle_id"),
+    p_reason: str(fd, "reason"),
+    p_replacement_vehicle_id: str(fd, "replacement_vehicle_id"),
+  });
+  if (error) throw new Error(error.message);
+  const result = data as { status: string; other_customer?: string } | null;
+  if (result?.status === "needs_replacement") {
+    throw new Error(
+      `That car is allotted to ${result.other_customer ?? "another customer"}. Pick the car they get instead (this booking's car or a free one) and try again.`,
+    );
+  }
+  revalidatePath("/stock", "layout");
+}
+
+export async function poolConfigUpdate(fd: FormData) {
+  const num = (key: string) => {
+    const v = str(fd, key);
+    return v == null ? null : Number(v);
+  };
+  await rpc("pool_config_update", {
+    p_enabled: str(fd, "enabled") == null ? null : str(fd, "enabled") === "on",
+    p_base_pool_size: num("base_pool_size"),
+    p_increment_per_vehicle: num("increment_per_vehicle"),
+    p_cash_payment_percentage: num("cash_payment_percentage"),
+  });
+}
+
+export async function poolRecomputeAll() {
+  await rpc("pool_recompute_all", {});
+}

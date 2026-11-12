@@ -22,6 +22,9 @@ const navGroups: NavGroup[] = [
     title: "Stock",
     links: [
       { href: "/stock", label: "Free Stock" },
+      { href: "/stock/pool", label: "Allotment Pool" },
+      { href: "/stock/finance-queue", label: "Finance Queue" },
+      { href: "/stock/vna", label: "VNA Demand" },
       { href: "/stock/match", label: "Match & Allot" },
       { href: "/stock/allotted", label: "Allotted" },
       { href: "/stock/billing", label: "Billing" },
