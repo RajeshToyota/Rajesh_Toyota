@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentEmployee } from "@/lib/auth";
 import { CRM_BACK_OFFICE_MAX_RANK, CRM_SYNC_OPTIONS, PURPOSE_OPTIONS, labelFor } from "@/lib/enquiries";
-import { BookingDone, CreateFromCtdms, EnquiryDone } from "./queue-actions";
+import { BookingDone, BulkCreateFromCtdms, CreateFromCtdms, EnquiryDone } from "./queue-actions";
 import { ImportSummary, UploadPanel } from "./upload-panel";
 
 const TABS = [
@@ -297,8 +297,13 @@ async function MissingQueue() {
   };
   const employeeOptions = (staff ?? []).map((s) => ({ id: s.id, name: s.name }));
   const modelOptions = (models ?? []).map((m) => ({ id: m.id, name: m.name }));
+  const readyIds = rows
+    .filter((r) => r.mobile && staffByCtdms.has((r.data.sales_officer ?? "").toUpperCase()) && modelResolves(r.data))
+    .map((r) => r.id);
 
   return (
+    <>
+    {rows.length > 0 && <BulkCreateFromCtdms rowIds={readyIds} skipped={rows.length - readyIds.length} />}
     <table className="min-w-full divide-y divide-slate-200 text-sm">
       <thead className="bg-slate-50">
         <tr>
@@ -349,6 +354,7 @@ async function MissingQueue() {
         {!error && rows.length === 0 && <Empty cols={7} text="Nothing in CTDMS is missing from our CRM." />}
       </tbody>
     </table>
+    </>
   );
 }
 

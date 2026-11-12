@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { createEnquiryFromCtdms, markBookingEntered, markEnquiryEntered } from "./actions";
+import { createEnquiriesFromCtdms, createEnquiryFromCtdms, markBookingEntered, markEnquiryEntered } from "./actions";
 
 type Option = { id: string; name: string };
 
@@ -133,6 +133,56 @@ export function CreateFromCtdms({
           Create in our CRM
         </button>
       </div>
+      {error && <p className="text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+// Creates every Missing row that needs no choice in one go. Rows needing an assignee or model
+// (or with no valid mobile) stay in the list for the per-row button.
+export function BulkCreateFromCtdms({ rowIds, skipped }: { rowIds: string[]; skipped: number }) {
+  const [pending, startTransition] = useTransition();
+  const [result, setResult] = useState<{ created: number; failed: { ctdmsNo: string; message: string }[] } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const go = () => {
+    if (!confirm(`Create ${rowIds.length} enquiries in our CRM from CTDMS?`)) return;
+    setError(null);
+    setResult(null);
+    startTransition(async () => {
+      try {
+        setResult(await createEnquiriesFromCtdms(rowIds));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Something went wrong");
+      }
+    });
+  };
+  return (
+    <div className="flex flex-col gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          disabled={pending || rowIds.length === 0}
+          onClick={go}
+          className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+        >
+          {pending ? `Creating ${rowIds.length}…` : `Create all ${rowIds.length} in our CRM`}
+        </button>
+        <span className="text-xs text-slate-500">
+          {rowIds.length === 0 ? "No row is ready for bulk create." : "Assigned to their CTDMS Sales Officer, model from CTDMS."}
+          {skipped ? ` ${skipped} need an assignee, model or mobile first and are left below.` : ""}
+        </span>
+      </div>
+      {result && (
+        <div className="text-xs">
+          <span className="text-emerald-700">Created {result.created}.</span>
+          {result.failed.length > 0 && (
+            <ul className="mt-1 list-disc pl-5 text-red-600">
+              {result.failed.map((f) => (
+                <li key={f.ctdmsNo}>{f.ctdmsNo}: {f.message}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
