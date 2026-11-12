@@ -2,9 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { entityGroups } from "@/lib/entities";
 
-const extraLinks: { title: string; links: { href: string; label: string }[] }[] = [
+type NavLink = { href: string; label: string };
+type NavGroup = { title: string; links?: NavLink[]; subgroups?: { title: string; links: NavLink[] }[] };
+
+const navGroups: NavGroup[] = [
   {
     title: "Sales",
     links: [
@@ -46,62 +50,126 @@ const extraLinks: { title: string; links: { href: string; label: string }[] }[] 
       { href: "/reports/margin", label: "Margin Summary" },
     ],
   },
+  {
+    // Master data drills down one more level: group ▸ table.
+    title: "Masters",
+    subgroups: entityGroups.map((g) => ({
+      title: g.title,
+      links: g.entities.map((e) => ({ href: `/admin/${e.slug}`, label: e.title })),
+    })),
+  },
 ];
 
+const groupLinks = (g: NavGroup) => [...(g.links ?? []), ...(g.subgroups ?? []).flatMap((s) => s.links)];
+const groupCount = (g: NavGroup) => g.links?.length ?? g.subgroups?.length ?? 0;
+
+// Top navigation bar: each section opens a dropdown; Masters drills down into a second flyout.
 export function SidebarNav() {
   const pathname = usePathname();
+  const [open, setOpen] = useState<string | null>(null);
+  const [openSub, setOpenSub] = useState<string | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close the menu when a link is picked, the user clicks elsewhere, or presses Escape.
+  const close = () => {
+    setOpen(null);
+    setOpenSub(null);
+  };
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(null);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(null);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
+  const isActive = (href: string) => pathname === href;
 
   return (
-    <nav className="space-y-6">
-      {extraLinks.map((group) => (
-        <div key={group.title}>
-          <p className="px-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            {group.title}
-          </p>
-          <ul className="mt-1 space-y-0.5">
-            {group.links.map((link) => (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  className={`block rounded-md px-3 py-1.5 text-sm ${
-                    pathname === link.href
-                      ? "bg-slate-900 text-white"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+    <div ref={ref} className="relative">
+      <nav className="flex flex-wrap items-stretch gap-0.5">
+        {navGroups.map((group) => {
+          const activeGroup = groupLinks(group).some((l) => isActive(l.href));
+          const isOpen = open === group.title;
+          return (
+            <div key={group.title} className="relative">
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                onClick={() => {
+                  setOpen(isOpen ? null : group.title);
+                  setOpenSub(null);
+                }}
+                className={`flex h-full items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-semibold uppercase tracking-wide ${
+                  isOpen
+                    ? "border-indigo-400 bg-slate-800 text-white"
+                    : activeGroup
+                      ? "border-indigo-400 text-white"
+                      : "border-transparent text-slate-300 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                {group.title}
+                <span className="text-[10px] font-normal text-slate-400">{groupCount(group)}</span>
+                <span className={`text-[10px] text-slate-400 transition-transform ${isOpen ? "rotate-90" : ""}`}>▸</span>
+              </button>
 
-      {entityGroups.map((group) => (
-        <div key={group.title}>
-          <p className="px-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            {group.title}
-          </p>
-          <ul className="mt-1 space-y-0.5">
-            {group.entities.map((entity) => {
-              const href = `/admin/${entity.slug}`;
-              const active = pathname === href;
-              return (
-                <li key={entity.slug}>
-                  <Link
-                    href={href}
-                    className={`block rounded-md px-3 py-1.5 text-sm ${
-                      active ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
-                    }`}
-                  >
-                    {entity.title}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
-    </nav>
+              {isOpen && (
+                <div className="absolute left-0 top-full z-50 mt-1 min-w-56 rounded-md border border-slate-700 bg-slate-900 py-1 shadow-xl">
+                  {group.links?.map((link) => (
+                    <MenuLink key={link.href} link={link} active={isActive(link.href)} onPick={close} />
+                  ))}
+                  {group.subgroups?.map((sub) => {
+                    const subOpen = openSub === sub.title;
+                    const subActive = sub.links.some((l) => isActive(l.href));
+                    return (
+                      <div key={sub.title} className="relative" onMouseEnter={() => setOpenSub(sub.title)}>
+                        <button
+                          type="button"
+                          onClick={() => setOpenSub(subOpen ? null : sub.title)}
+                          className={`flex w-full items-center justify-between gap-4 px-4 py-2 text-left text-sm ${
+                            subOpen || subActive ? "bg-slate-800 text-white" : "text-slate-200 hover:bg-slate-800"
+                          }`}
+                        >
+                          {sub.title}
+                          <span className="text-xs text-slate-400">
+                            {sub.links.length} ▸
+                          </span>
+                        </button>
+                        {subOpen && (
+                          <div className="absolute left-full top-0 z-50 ml-1 min-w-60 rounded-md border border-slate-700 bg-slate-900 py-1 shadow-xl">
+                            {sub.links.map((link) => (
+                              <MenuLink key={link.href} link={link} active={isActive(link.href)} onPick={close} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </nav>
+    </div>
+  );
+}
+
+function MenuLink({ link, active, onPick }: { link: NavLink; active: boolean; onPick: () => void }) {
+  return (
+    <Link
+      href={link.href}
+      onClick={onPick}
+      className={`block whitespace-nowrap px-4 py-2 text-sm ${
+        active ? "bg-indigo-600 font-semibold text-white" : "text-slate-200 hover:bg-slate-800 hover:text-white"
+      }`}
+    >
+      {link.label}
+    </Link>
   );
 }
