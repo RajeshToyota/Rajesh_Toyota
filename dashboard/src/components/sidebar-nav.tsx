@@ -107,10 +107,10 @@ export function SidebarNav() {
                 }}
                 className={`flex h-full items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-semibold uppercase tracking-wide ${
                   isOpen
-                    ? "border-indigo-400 bg-slate-800 text-white"
+                    ? "border-slate-900 bg-slate-100 text-slate-900"
                     : activeGroup
-                      ? "border-indigo-400 text-white"
-                      : "border-transparent text-slate-300 hover:bg-slate-800 hover:text-white"
+                      ? "border-slate-900 text-slate-900"
+                      : "border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-900"
                 }`}
               >
                 {group.title}
@@ -119,7 +119,7 @@ export function SidebarNav() {
               </button>
 
               {isOpen && (
-                <div className="absolute left-0 top-full z-50 mt-1 min-w-56 rounded-md border border-slate-700 bg-slate-900 py-1 shadow-xl">
+                <div className="absolute left-0 top-full z-50 mt-1 min-w-56 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
                   {group.links?.map((link) => (
                     <MenuLink key={link.href} link={link} active={isActive(link.href)} onPick={close} />
                   ))}
@@ -132,7 +132,7 @@ export function SidebarNav() {
                           type="button"
                           onClick={() => setOpenSub(subOpen ? null : sub.title)}
                           className={`flex w-full items-center justify-between gap-4 px-4 py-2 text-left text-sm ${
-                            subOpen || subActive ? "bg-slate-800 text-white" : "text-slate-200 hover:bg-slate-800"
+                            subOpen || subActive ? "bg-slate-100 text-slate-900" : "text-slate-600 hover:bg-slate-100"
                           }`}
                         >
                           {sub.title}
@@ -141,7 +141,7 @@ export function SidebarNav() {
                           </span>
                         </button>
                         {subOpen && (
-                          <div className="absolute left-full top-0 z-50 ml-1 min-w-60 rounded-md border border-slate-700 bg-slate-900 py-1 shadow-xl">
+                          <div className="absolute left-full top-0 z-50 ml-1 min-w-60 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
                             {sub.links.map((link) => (
                               <MenuLink key={link.href} link={link} active={isActive(link.href)} onPick={close} />
                             ))}
@@ -166,7 +166,7 @@ function MenuLink({ link, active, onPick }: { link: NavLink; active: boolean; on
       href={link.href}
       onClick={onPick}
       className={`block whitespace-nowrap px-4 py-2 text-sm ${
-        active ? "bg-indigo-600 font-semibold text-white" : "text-slate-200 hover:bg-slate-800 hover:text-white"
+        active ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
       }`}
     >
       {link.label}

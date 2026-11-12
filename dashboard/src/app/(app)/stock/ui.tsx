@@ -69,7 +69,7 @@ export function ProposalList({
         </thead>
         <tbody className="divide-y divide-slate-100">
           {rows.map((r) => (
-            <tr key={r.key} onClick={() => toggle(r.key)} className={`cursor-pointer ${picked.has(r.key) ? "bg-indigo-50" : "hover:bg-slate-50"}`}>
+            <tr key={r.key} onClick={() => toggle(r.key)} className={`cursor-pointer ${picked.has(r.key) ? "bg-slate-100" : "hover:bg-slate-50"}`}>
               <td className="px-3 py-2">
                 <input type="checkbox" checked={picked.has(r.key)} onChange={() => toggle(r.key)} onClick={(e) => e.stopPropagation()} />
               </td>

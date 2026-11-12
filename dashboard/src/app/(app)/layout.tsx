@@ -14,13 +14,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen flex-1 flex-col">
-      <header className="sticky top-0 z-40 bg-slate-900 text-white shadow">
-        <div className="flex items-center justify-between gap-4 border-b border-slate-800 px-6 py-2">
-          <p className="text-sm font-bold uppercase tracking-widest">Rajesh Toyota CRM</p>
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white">
+        <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-6 py-2">
+          <p className="text-sm font-semibold text-slate-900">Rajesh Toyota CRM</p>
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <p className="text-sm font-medium">{employee.name}</p>
-              <p className="text-xs text-slate-400">{employee.roleName ?? "No role assigned"}</p>
+              <p className="text-sm font-medium text-slate-900">{employee.name}</p>
+              <p className="text-xs text-slate-500">{employee.roleName ?? "No role assigned"}</p>
             </div>
             <SignOutButton />
           </div>
