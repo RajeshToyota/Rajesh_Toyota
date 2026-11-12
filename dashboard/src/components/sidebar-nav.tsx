@@ -28,6 +28,7 @@ const navGroups: NavGroup[] = [
       { href: "/payments", label: "Payments" },
       { href: "/cancellations", label: "Hold & Cancellations" },
       { href: "/stock/ctdms", label: "CTDMS To-do" },
+      { href: "/stock/import", label: "Import Stock" },
     ],
   },
   {
