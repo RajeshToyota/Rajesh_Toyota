@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 export { ActionForm, type Field } from "@/components/action-form";
 
@@ -16,7 +16,17 @@ export function ProposalList({
   rows: { key: string; cells: React.ReactNode[] }[];
   columns: string[];
 }) {
-  const [picked, setPicked] = useState<Set<string>>(() => new Set(rows.map((r) => r.key)));
+  // Nothing is ticked by default: the user picks rows one by one or uses "Select all".
+  const [pickedRaw, setPicked] = useState<Set<string>>(() => new Set());
+  // Drop keys whose rows have gone (e.g. after allotting, the list refreshes).
+  const picked = new Set(rows.filter((r) => pickedRaw.has(r.key)).map((r) => r.key));
+  const allPicked = rows.length > 0 && picked.size === rows.length;
+  const somePicked = picked.size > 0 && !allPicked;
+  const headerBox = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (headerBox.current) headerBox.current.indeterminate = somePicked;
+  }, [somePicked]);
+  const toggleAll = () => setPicked(allPicked ? new Set() : new Set(rows.map((r) => r.key)));
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const toggle = (k: string) =>
@@ -47,7 +57,9 @@ export function ProposalList({
       <table className="min-w-full divide-y divide-slate-200 text-sm">
         <thead className="bg-slate-50">
           <tr>
-            <th className="w-8 px-3 py-2" />
+            <th className="w-8 px-3 py-2">
+              <input ref={headerBox} type="checkbox" aria-label="Select all" checked={allPicked} onChange={toggleAll} />
+            </th>
             {columns.map((c) => (
               <th key={c} className="px-3 py-2 text-left font-medium text-slate-600">
                 {c}
@@ -57,9 +69,9 @@ export function ProposalList({
         </thead>
         <tbody className="divide-y divide-slate-100">
           {rows.map((r) => (
-            <tr key={r.key}>
+            <tr key={r.key} onClick={() => toggle(r.key)} className={`cursor-pointer ${picked.has(r.key) ? "bg-indigo-50" : "hover:bg-slate-50"}`}>
               <td className="px-3 py-2">
-                <input type="checkbox" checked={picked.has(r.key)} onChange={() => toggle(r.key)} />
+                <input type="checkbox" checked={picked.has(r.key)} onChange={() => toggle(r.key)} onClick={(e) => e.stopPropagation()} />
               </td>
               {r.cells.map((c, i) => (
                 <td key={i} className="px-3 py-2">
@@ -78,6 +90,14 @@ export function ProposalList({
         >
           {pending ? "Allotting…" : `Allot ${picked.size} selected`}
         </button>
+        <button type="button" onClick={toggleAll} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100">
+          {allPicked ? "Clear selection" : `Select all (${rows.length})`}
+        </button>
+        {picked.size > 0 && !allPicked && (
+          <button type="button" onClick={() => setPicked(new Set())} className="text-sm text-slate-500 underline">
+            Clear
+          </button>
+        )}
         {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
     </div>
