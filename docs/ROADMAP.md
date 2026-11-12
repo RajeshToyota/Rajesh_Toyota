@@ -65,7 +65,7 @@ This plan extends the existing codebase. It does not replace it.
 - **Employees are created from the booking dump for now.** That means 30 SOs and 6 TLs at their branch, with SO → TL reporting. The full employee sheet will enrich them later. The employee file was not attached, so it still needs to be sent.
 - **Only orders with status Booked or Accepted are imported** as open bookings.
 
-## Phase 16 — Stock Allotment Pool — status: built, not yet live
+## Phase 16 — Stock Allotment Pool — status: migrated to live (12 Nov), pool switched off
 
 Automatic allotment, using the same logic as the Techwheels pool (`20261113000001_stock_allotment_pool.sql`). It ships switched **off**; until a Business Head switches it on (Stock → Allotment Pool → Settings), allotment works exactly as in Phase 10.
 

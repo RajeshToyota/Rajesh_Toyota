@@ -75,5 +75,6 @@ engine in `supabase/migrations/` (Phase 1) for the shared `calculate_price` impl
   - `20261101000001` → `20261026075429` hold_cancel (Phase 13)
   - `20261102000001` → `20261026081013` employee_management (Phase 14)
   - `20261103000001` → `20261026091801` pipeline_reports (Phase 15)
+  - `20261113000001` → `20261112135745` stock_allotment_pool (Phase 16; applied with comments stripped, pool switched off)
   - The CTDMS staff (36) and open orders (265) were loaded with `execute_sql` and are not recorded as
     migrations.
