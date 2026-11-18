@@ -65,6 +65,33 @@ This plan extends the existing codebase. It does not replace it.
 - **Employees are created from the booking dump for now.** That means 30 SOs and 6 TLs at their branch, with SO → TL reporting. The full employee sheet will enrich them later. The employee file was not attached, so it still needs to be sent.
 - **Only orders with status Booked or Accepted are imported** as open bookings.
 
+## Phases 17–22 — Techwheels parity — status: built and tested locally, NOT yet on live
+
+Plan and reasoning: `docs/TECHWHEELS_PARITY_PLAN.md`. Each phase's database work is a migration with a
+SQL test; `scripts/localdb/test.sh` rebuilds a scratch database and runs every test (19 files, all pass).
+Nothing below has been applied to the live Supabase project yet.
+
+| Phase | What | Migration / test | Web (`web/`) |
+|---|---|---|---|
+| 17a | Staff web app rebuilt on React + Vite (Techwheels shell); old pages run through `web/src/compat` | — | `web/` (replaces `dashboard/`) |
+| 17b | Module rights (view/create/edit/approve/delete), per-person grant/revoke, DB menu, Access Studio, 7 new roles | `20261118000001_permissions_menu` / `permissions_menu.sql` | `/admin/access` |
+| 18 | Ops Billing stages (billing → accounts → insurance → RTO → accessories → scheme → scrap → PDI → gate pass), reopen approval, PDI board, gate pass + exit, delivery slots; `ops_config.enabled` makes the gate pass a delivery blocker (off by default) | `20261118000002_ops_billing_pdi_delivery` / `ops_billing.sql` | `/ops-billing`, `/pdi-board`, `/ops-billing/gate-pass`, `/delivery-scheduler` |
+| 19 | Enquiry follow-ups, tasks, reception walk-ins, test drives, RM console + Booking 360, walk-in and follow-up reports | `20261118000003_rm_leads_reception_test_drive` / `rm_leads.sql` | `/followups`, `/tasks`, `/reception`, `/test-drives`, `/rm`, `/reports/walkins`, `/reports/followups` |
+| 20 | Targets; incentive schemes as rules (CA 75/25 with gates, TL share, GM/SM 60:40, pre-finance penetration from 60%); monthly runs, approval, held releases; bank payouts to CA | `20261118000004_targets_incentives` / `targets_incentives.sql` | `/targets`, `/incentives`, `/incentives/schemes`, `/incentives/bank-payouts`, `/incentives/me` |
+| 21 | Price difference blocks the pool until collected/waived; stock control; branch transfers; yard log; other dealers' stock vs VNA; search console + car timeline | `20261118000005_stock_extras` / `stock_extras.sql` | `/stock/price-diff`, `/stock/control`, `/stock/transfers`, `/stock/yard`, `/stock/other-dealers`, `/search` |
+| 22 | Exchange evaluations (photos, valuation, negotiation, U Trust flag), buy-in as exchange receipt, used-car stock and summary | `20261118000006_exchange_used_cars` / `exchange_used_cars.sql` | `/used-cars/evaluations`, `/used-cars/stock`, `/used-cars/summary` |
+
+**Before go-live:**
+- Apply the six migrations to live in order.
+- Deploy the `employee-login` edge function.
+- Review the seeded role rights in the Access Studio.
+- Set the real per-car CA amounts in Incentive Schemes (the seeded ₹1,000 / ₹1,500 / ₹2,000 are placeholders).
+- Switch `ops_config.enabled` on per go-live plan.
+
+**Not done:**
+- Mobile (Expo) screens for the new modules; the web pages work on a phone browser in the meantime.
+- PDI and test-drive photo uploads, which need storage buckets like `used-car-photos`.
+
 ## Phase 16 — Stock Allotment Pool — status: migrated to live (12 Nov), pool switched off
 
 Automatic allotment, using the same logic as the Techwheels pool (`20261113000001_stock_allotment_pool.sql`). It ships switched **off**; until a Business Head switches it on (Stock → Allotment Pool → Settings), allotment works exactly as in Phase 10.

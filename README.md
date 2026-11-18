@@ -21,7 +21,7 @@ ever revisited.
 - `docs/TECHWHEELS_PARITY_PLAN.md` — Phases 17–22: bring the app to Techwheels parity
 - `scripts/seed/` — generators for master data (price lists, accessories, EW, TKM codes) and for
   importing open CTDMS orders; `scripts/localdb/` — apply all migrations to a local Postgres
-- `supabase/tests/` — SQL checks run against a scratch database
+- `supabase/tests/` — SQL checks run against a scratch database; `scripts/localdb/test.sh` rebuilds it and runs them all
 - `mobile/` — Expo mobile app (added in Phase 3+)
 
 ## Web app (`web/`)
