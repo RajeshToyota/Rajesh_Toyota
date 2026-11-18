@@ -33,4 +33,9 @@ export const phaseRoutes: { path: string; module?: string; Component: ComponentT
   { path: "/stock/yard", module: "vehicle_location", Component: lazy(() => import("@/pages/stockx/Yard")) },
   { path: "/stock/other-dealers", module: "other_dealers", Component: lazy(() => import("@/pages/stockx/OtherDealers")) },
   { path: "/search", module: "search_console", Component: lazy(() => import("@/pages/stockx/Search")) },
+
+  // Phase 22: exchange and used cars
+  { path: "/used-cars/evaluations", module: "used_car_evaluations", Component: lazy(() => import("@/pages/used/Evaluations")) },
+  { path: "/used-cars/stock", module: "used_car_stock", Component: lazy(() => import("@/pages/used/Stock")) },
+  { path: "/used-cars/summary", module: "rpt_used_cars", Component: lazy(() => import("@/pages/used/Stock").then((m) => ({ default: m.UsedCarSummary }))) },
 ];
