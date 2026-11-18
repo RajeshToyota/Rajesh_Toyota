@@ -79,7 +79,6 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
           { key: "tkm_suffix_code", label: "TKM Suffix Code (e.g. D22U4)", type: "text" },
           { key: "old_suffix_code", label: "Old Suffix Code", type: "text", hideInTable: true },
           { key: "name", label: "Name", type: "text", required: true },
-          { key: "engine_cc", label: "Engine (cc)", type: "number", step: "1" },
           { key: "is_active", label: "Active", type: "boolean" },
         ],
       },
@@ -126,9 +125,9 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
         title: "Price List",
         description:
           "One row per variant, list (private / commercial / CSD) and state, with effective dating. The price applies to " +
-          "every colour; colour price differences are set in Variant ↔ Color. RTO is Normal registration, worked out as " +
-          "in Techwheels: fixed charges (RTO Settings) + MV tax at this row's rate + 12.5% surcharge + green tax (by engine cc). " +
-          "Until the MV tax rate and RTO Settings are filled in, the printed Road Tax & Registration is used.",
+          "every colour; colour price differences are set in Variant ↔ Color. RTO (Normal) is worked out as in Techwheels: " +
+          "the list's fixed charges (RTO Settings) + MV tax at this row's rate + 12.5% surcharge + green tax + extra charges. " +
+          "A row with no MV tax rate uses the printed Road Tax & Registration.",
         orderBy: "effective_from",
         currentOnly: { fromKey: "effective_from", toKey: "effective_to" },
         fields: [
@@ -147,7 +146,9 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
           { key: "state", label: "State", type: "text", required: true },
           { key: "ex_showroom_price", label: "Ex-Showroom Price", type: "number", step: "0.01", required: true },
           { key: "tcs_amount", label: "TCS (as printed)", type: "number", step: "0.01", hideInTable: true },
-          { key: "mv_tax_rate", label: "MV Tax Rate (%)", type: "number", step: "0.01" },
+          { key: "mv_tax_rate", label: "MV Tax Rate (%)", type: "number", step: "any" },
+          { key: "green_tax", label: "Green Tax", type: "number", step: "0.01", hideInTable: true },
+          { key: "extra_rto_charges", label: "Extra RTO Charges (e.g. fitness)", type: "number", step: "0.01", hideInTable: true },
           { key: "rto_amount", label: "RTO (Normal)", type: "number", readOnly: true },
           { key: "road_tax_registration", label: "Road Tax & Registration (as printed)", type: "number", step: "0.01", hideInTable: true },
           { key: "fastag_amount", label: "FASTag", type: "number", step: "0.01", hideInTable: true },
@@ -220,25 +221,31 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
         table: "rto_settings",
         title: "RTO Settings",
         description:
-          "Fixed charges added to every Normal registration (as Techwheels rto_settings). One row only. " +
-          "RTO = these charges + MV tax (ex-showroom × the price-list row's MV tax rate) + surcharge on MV tax + green tax.",
+          "Fixed RTO charges for each price list, from the RTO calculation sheet. RTO (Normal registration) = these " +
+          "charges + MV tax (ex-showroom incl. colour difference × the price-list row's MV tax rate) + surcharge on MV " +
+          "tax + the row's green tax and extra charges. EVs pay no MV tax, surcharge or green tax.",
+        orderBy: "list_type",
         fields: [
-          { key: "new_registration", label: "New Registration", type: "number", step: "0.01", required: true },
-          { key: "hypothecation_addition", label: "Hypothecation Addition", type: "number", step: "0.01", required: true },
-          { key: "duplicate_tax_card", label: "Duplicate Tax Card", type: "number", step: "0.01", required: true },
-          { key: "surcharge_percent", label: "Surcharge on MV Tax (%)", type: "number", step: "0.01", required: true },
-        ],
-      },
-      {
-        slug: "green-tax-slabs",
-        table: "green_tax_slabs",
-        title: "Green Tax Slabs",
-        description: "Green tax by engine size (Variants → Engine cc). Not charged on EVs.",
-        orderBy: "min_cc",
-        fields: [
-          { key: "min_cc", label: "From (cc)", type: "number", step: "1", required: true },
-          { key: "max_cc", label: "To (cc)", type: "number", step: "1", required: true },
-          { key: "amount", label: "Green Tax", type: "number", step: "0.01", required: true },
+          {
+            key: "list_type",
+            label: "List",
+            type: "select",
+            required: true,
+            options: [
+              { value: "private", label: "Private" },
+              { value: "commercial", label: "Commercial" },
+              { value: "csd", label: "CSD" },
+            ],
+          },
+          { key: "rc_charge", label: "RC", type: "number", step: "0.01", required: true },
+          { key: "tcc_charge", label: "TCC", type: "number", step: "0.01", required: true },
+          { key: "hpn_charge", label: "HPN", type: "number", step: "0.01", required: true },
+          { key: "smart_card_charge", label: "Smart Card", type: "number", step: "0.01", required: true },
+          { key: "number_plate_charge", label: "Number Plate", type: "number", step: "0.01", required: true },
+          { key: "service_charge", label: "Service Charge", type: "number", step: "0.01", required: true },
+          { key: "other_charges", label: "Other Charges", type: "number", step: "0.01", required: true },
+          { key: "surcharge_percent", label: "Surcharge on MV Tax (%)", type: "number", step: "0.001", required: true },
+          { key: "notes", label: "Notes", type: "text", hideInTable: true },
         ],
       },
       {

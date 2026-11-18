@@ -1,6 +1,5 @@
--- RTO (Normal registration) worked out the Techwheels way (rto_normal), and one price-list row
--- per variant. Runs in a transaction that is rolled back, so the settings it adds do not leak
--- into other tests.
+-- RTO (Normal registration) worked out the Techwheels way with the RTO calculation sheet's figures
+-- (rto_normal), and one price-list row per variant. Runs in a transaction that is rolled back.
 begin;
 do $$
 declare
@@ -9,6 +8,7 @@ declare
   std uuid;
   r jsonb;
   n int;
+  bad text;
 begin
   -- One row per variant / list / state / effective date; no colour or paint rows left.
   select count(*) into n from price_list where color_id is not null or paint_category <> 'standard';
@@ -20,46 +20,50 @@ begin
   exception when check_violation then null;
   end;
 
-  -- Not configured yet: the printed figure is used.
+  -- The worked-out RTO matches the printed TKM figure (within 1 rupee of rounding) on every list
+  -- row except the few printed one-offs (Land Cruiser 300, two Hycross commercial rows).
+  select string_agg(format('%s/%s: printed %s, worked out %s', v.name, p.list_type, p.road_tax_registration, p.rto_amount), '; ')
+  into bad
+  from price_list p join variants v on v.id = p.variant_id join models m on m.id = v.model_id
+  where p.road_tax_registration is not null and abs(p.road_tax_registration - p.rto_amount) > 1
+    and m.name <> 'Land Cruiser 300'
+    and not (m.name = 'Innova Hycross' and p.list_type = 'commercial');
+  if bad is not null then raise exception 'RTO differs from the printed list: %', bad; end if;
+
+  -- Fortuner 4x2 MT (FRNBJ), diesel, private: 35,75,000 x 12% = 4,29,000; surcharge 53,625;
+  -- green 7,500; fixed 4,200 -> 4,94,325 (as printed).
   select id into v from variants where tkm_suffix_code = 'FRNBJ';
   select id into pw from colors where tkm_color_code = '089';
   select id into std from colors where tkm_color_code = '040';
-  if (select rto_amount from price_list where variant_id = v and list_type = 'private') <> 494325 then
-    raise exception 'unconfigured rto_amount should be the printed 494325';
-  end if;
-
-  -- Configure: fixed charges 600 + 1,500 + 300, 12% MV tax, green tax 4,000 for 2,001-3,000 cc.
-  insert into rto_settings (new_registration, hypothecation_addition, duplicate_tax_card) values (600, 1500, 300);
-  insert into green_tax_slabs (min_cc, max_cc, amount) values (0, 2000, 2000), (2001, 3000, 4000);
-  update variants set engine_cc = 2755 where id = v;
-  update price_list set mv_tax_rate = 12 where variant_id = v and list_type = 'private';
-
-  -- 35,75,000 x 12% = 4,29,000; surcharge 53,625; + 2,400 fixed + 4,000 green = 4,89,025.
-  r := rto_normal(v, 3575000, 12);
-  if (r->>'total')::numeric <> 489025 or (r->>'mv_tax')::numeric <> 429000 or (r->>'surcharge_mv_tax')::numeric <> 53625 then
+  r := rto_normal(v, 'private', 3575000, 12, 7500, 0);
+  if (r->>'total')::numeric <> 494325 or (r->>'mv_tax')::numeric <> 429000 or (r->>'surcharge_mv_tax')::numeric <> 53625 then
     raise exception 'rto_normal FRNBJ: got %', r;
   end if;
-  if (select rto_amount from price_list where variant_id = v and list_type = 'private') <> 489025 then
-    raise exception 'stored rto_amount not refreshed: %', (select rto_amount from price_list where variant_id = v and list_type = 'private');
-  end if;
-
-  -- Standard colour quote uses it.
   r := calculate_price(jsonb_build_object('variant_id', v, 'color_id', std, 'state', 'Rajasthan'));
-  if (r->>'rto_amount')::numeric <> 489025 then raise exception 'standard colour RTO: got %', r->>'rto_amount'; end if;
+  if (r->>'rto_amount')::numeric <> 494325 then raise exception 'standard colour RTO: got %', r->>'rto_amount'; end if;
 
-  -- Pearl white: MV tax on 35,95,000 = 4,31,400; surcharge 53,925; total 4,91,725.
+  -- Pearl white (+20,000): MV tax on 35,95,000 = 4,31,400; surcharge 53,925 -> 4,97,025, which is
+  -- what the old Pearl White row printed.
   r := calculate_price(jsonb_build_object('variant_id', v, 'color_id', pw, 'state', 'Rajasthan'));
-  if (r->>'rto_amount')::numeric <> 491725 then raise exception 'pearl colour RTO: got %', r->>'rto_amount'; end if;
+  if (r->>'rto_amount')::numeric <> 497025 then raise exception 'pearl colour RTO: got %', r->>'rto_amount'; end if;
 
-  -- An engine change re-prices the stored figure: 1,998 cc -> green tax 2,000.
-  update variants set engine_cc = 1998 where id = v;
-  if (select rto_amount from price_list where variant_id = v and list_type = 'private') <> 487025 then
-    raise exception 'engine change not refreshed';
+  -- Changing a list's fixed charges re-prices the stored figures.
+  update rto_settings set service_charge = 1500 where list_type = 'private';
+  if (select rto_amount from price_list where variant_id = v and list_type = 'private') <> 494825 then
+    raise exception 'settings change not refreshed';
   end if;
 
-  -- EV: no MV tax, no surcharge, no green tax; just the fixed charges.
+  -- A row with no MV tax rate falls back to the printed figure.
+  update price_list set mv_tax_rate = null where variant_id = v and list_type = 'private';
+  if (select rto_amount from price_list where variant_id = v and list_type = 'private') <> 494325 then
+    raise exception 'no-rate fallback: expected printed 494325';
+  end if;
+
+  -- EV: no MV tax, surcharge or green tax; just the fixed charges.
   update variants set fuel_type_id = (select id from fuel_types where name = 'EV') where id = v;
-  if (rto_normal(v, 3575000, 12)->>'total')::numeric <> 2400 then raise exception 'EV: got %', rto_normal(v, 3575000, 12); end if;
+  if (rto_normal(v, 'private', 3575000, 12, 7500, 0)->>'total')::numeric <> 4700 then
+    raise exception 'EV: got %', rto_normal(v, 'private', 3575000, 12, 7500, 0);
+  end if;
 
   raise notice 'rto_formula: all checks passed';
 end $$;

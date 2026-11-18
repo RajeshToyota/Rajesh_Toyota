@@ -1,66 +1,69 @@
 -- RTO worked out the Techwheels way, and one price-list row per variant.
 --
--- 1. RTO (Normal registration only), as TECHWHEELS-WEB src/lib/pricing/rto.js computes it:
---      MV tax    = ex-showroom x MV tax rate          (0 for EV)
+-- 1. RTO (Normal registration only). Same shape as TECHWHEELS-WEB src/lib/pricing/rto.js, with the
+--    figures from the dealership's RTO calculation sheet (checked against every printed TKM list):
+--      MV tax    = ex-showroom (incl. colour difference) x MV tax rate     (0 for EV)
 --      surcharge = 12.5% of MV tax
---      green tax = by engine cc, from green_tax_slabs (0 for EV)
---      total     = new registration + hypothecation addition + duplicate tax card
---                  + MV tax + surcharge + green tax
---    The fixed charges live in rto_settings (one row), the MV tax rate on each price-list row (it
---    differs between the private and commercial lists), the engine cc on the variant. Until those
---    are filled in, the list's printed Road Tax & Registration keeps being used.
+--      total     = fixed charges for the list + MV tax + surcharge + green tax + extra charges
+--    * Fixed charges, per list (rto_settings): private = RC 600 + TCC 100 + HPN 1,500 + smart card
+--      200 + number plate 800 + service charge 1,000 = 4,200; commercial (taxi lump-sum sheet) =
+--      3,700 + 6,500 = 10,200.
+--    * Per price-list row: MV tax rate (private: Glanza 9%, Taisor 9.004724409%, other petrol /
+--      CNG / hybrid 10%, diesel 12%; commercial 10.00248%), green tax (private: 7,500 for diesel,
+--      Hycross and Vellfire, else 2,500; commercial none), extra charges (Hycross fitness 1,000).
+--    MV tax and surcharge are each rounded to the rupee, as in Techwheels.
 -- 2. The price list holds one row per variant x list x state x effective date. Every colour of a
 --    variant is sold at that price unless Variant <-> Color gives the colour an extra cost. The
---    Pearl White / dual-tone rows become extra costs on those colours, the per-colour rows become a
---    single row, and the rows folded in are moved to price_list_archive (nothing is lost).
+--    Pearl White / dual-tone rows become extra costs on those colours, the current per-colour rows
+--    become a single row, and every row folded in is moved to price_list_archive (nothing is lost).
 
 -- ===== RTO inputs =====
 create table rto_settings (
-  id boolean primary key default true check (id),
-  new_registration numeric not null default 0,
-  hypothecation_addition numeric not null default 0,
-  duplicate_tax_card numeric not null default 0,
+  id uuid primary key default gen_random_uuid(),
+  list_type text not null unique check (list_type in ('private', 'commercial', 'csd')),
+  rc_charge numeric not null default 0,
+  tcc_charge numeric not null default 0,
+  hpn_charge numeric not null default 0,
+  smart_card_charge numeric not null default 0,
+  number_plate_charge numeric not null default 0,
+  service_charge numeric not null default 0,
+  other_charges numeric not null default 0,
   surcharge_percent numeric not null default 12.5,
+  notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-comment on table rto_settings is 'Single row: fixed RTO charges (as Techwheels rto_settings). No row = RTO formula not configured.';
+comment on table rto_settings is 'Fixed RTO charges per price list (as Techwheels rto_settings). No row for a list = RTO formula not configured for it.';
 create trigger trg_rto_settings_updated_at before update on rto_settings for each row execute function set_updated_at();
 
-create table green_tax_slabs (
-  id uuid primary key default gen_random_uuid(),
-  min_cc int not null,
-  max_cc int not null,
-  amount numeric not null,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  check (max_cc >= min_cc)
-);
-create trigger trg_green_tax_slabs_updated_at before update on green_tax_slabs for each row execute function set_updated_at();
-
 alter table rto_settings enable row level security;
-alter table green_tax_slabs enable row level security;
 create policy rto_settings_select on rto_settings for select to authenticated using (true);
 create policy rto_settings_write on rto_settings for all to authenticated
   using (is_master_data_admin()) with check (is_master_data_admin());
-create policy green_tax_slabs_select on green_tax_slabs for select to authenticated using (true);
-create policy green_tax_slabs_write on green_tax_slabs for all to authenticated
-  using (is_master_data_admin()) with check (is_master_data_admin());
 
-alter table variants add column engine_cc int check (engine_cc is null or engine_cc > 0);
+insert into rto_settings (list_type, rc_charge, tcc_charge, hpn_charge, smart_card_charge, number_plate_charge, service_charge, other_charges, notes) values
+  ('private', 600, 100, 1500, 200, 800, 1000, 0, 'RTO calculation sheet'),
+  ('commercial', 0, 0, 0, 0, 0, 0, 10200, 'Taxi lump-sum sheet: 3,700 + 6,500'),
+  ('csd', 600, 100, 1500, 200, 800, 1000, 0, 'Same as private until a CSD list says otherwise');
 
 alter table price_list
   add column mv_tax_rate numeric check (mv_tax_rate is null or (mv_tax_rate >= 0 and mv_tax_rate <= 100)),
+  -- Blank green tax / extra charges count as 0.
+  add column green_tax numeric check (green_tax is null or green_tax >= 0),
+  add column extra_rto_charges numeric,
   -- Normal-registration RTO at this row's ex-showroom price: the formula when configured, else the
   -- printed Road Tax & Registration. Maintained by triggers; read-only for users.
   add column rto_amount numeric;
-comment on column price_list.mv_tax_rate is 'MV (road) tax rate in percent, e.g. 10 for 10%.';
+comment on column price_list.mv_tax_rate is 'MV (one-time road) tax rate in percent, e.g. 10 for 10%.';
+comment on column price_list.extra_rto_charges is 'Variant-specific RTO charges on top of the list''s fixed charges (e.g. Hycross fitness 1,000).';
 comment on column price_list.road_tax_registration is 'Road Tax & Registration as printed on the TKM list.';
 
 -- ===== The formula =====
--- Returns null when it cannot be worked out yet (no MV tax rate, no rto_settings row, or a non-EV
--- variant with no engine cc while green-tax slabs exist), so callers fall back to the printed figure.
-create or replace function rto_normal(p_variant_id uuid, p_ex_showroom numeric, p_mv_tax_rate numeric)
+-- Returns null when it cannot be worked out (no MV tax rate, or no rto_settings row for the list),
+-- so callers fall back to the printed figure.
+create or replace function rto_normal(
+  p_variant_id uuid, p_list_type text, p_ex_showroom numeric,
+  p_mv_tax_rate numeric, p_green_tax numeric, p_extra_charges numeric)
 returns jsonb
 language plpgsql
 stable
@@ -69,51 +72,52 @@ set search_path = public
 as $$
 declare
   s rto_settings%rowtype;
-  v_engine_cc int;
-  v_fuel text;
   v_is_ev boolean;
   v_mv numeric;
   v_surcharge numeric;
-  v_green numeric := 0;
+  v_green numeric;
   v_fixed numeric;
+  v_extra numeric := round(coalesce(p_extra_charges, 0));
 begin
   if p_mv_tax_rate is null or p_ex_showroom is null then return null; end if;
-  select * into s from rto_settings limit 1;
+  select * into s from rto_settings where list_type = coalesce(p_list_type, 'private');
   if not found then return null; end if;
 
-  select v.engine_cc, lower(f.name) into v_engine_cc, v_fuel
+  select lower(f.name) in ('ev', 'electric') into v_is_ev
   from variants v left join fuel_types f on f.id = v.fuel_type_id
   where v.id = p_variant_id;
-  v_is_ev := v_fuel in ('ev', 'electric');
+  v_is_ev := coalesce(v_is_ev, false);
 
   v_mv := case when v_is_ev then 0 else round(p_ex_showroom * p_mv_tax_rate / 100) end;
   v_surcharge := round(v_mv * s.surcharge_percent / 100);
+  v_green := case when v_is_ev then 0 else round(coalesce(p_green_tax, 0)) end;
+  v_fixed := round(s.rc_charge + s.tcc_charge + s.hpn_charge + s.smart_card_charge
+                   + s.number_plate_charge + s.service_charge + s.other_charges);
 
-  if not v_is_ev then
-    if v_engine_cc is null then
-      if exists (select 1 from green_tax_slabs) then return null; end if;
-    else
-      select round(amount) into v_green from green_tax_slabs
-      where min_cc <= v_engine_cc and max_cc >= v_engine_cc
-      order by min_cc desc limit 1;
-      v_green := coalesce(v_green, 0);
-    end if;
-  end if;
-
-  v_fixed := round(s.new_registration) + round(s.hypothecation_addition) + round(s.duplicate_tax_card);
   return jsonb_build_object(
     'reg_type', 'Normal',
-    'new_registration', round(s.new_registration),
-    'hypothecation_addition', round(s.hypothecation_addition),
-    'duplicate_tax_card', round(s.duplicate_tax_card),
+    'fixed_charges', v_fixed,
+    'mv_tax_rate', p_mv_tax_rate,
     'mv_tax', v_mv,
     'surcharge_mv_tax', v_surcharge,
     'green_tax', v_green,
-    'total', v_fixed + v_mv + v_surcharge + v_green
+    'extra_charges', v_extra,
+    'total', v_fixed + v_mv + v_surcharge + v_green + v_extra
   );
 end;
 $$;
-grant execute on function rto_normal(uuid, numeric, numeric) to authenticated;
+grant execute on function rto_normal(uuid, text, numeric, numeric, numeric, numeric) to authenticated;
+
+create or replace function price_list_rto_total(pl price_list)
+returns numeric
+language sql
+stable
+set search_path = public
+as $$
+  select coalesce(
+    (rto_normal(pl.variant_id, pl.list_type, pl.ex_showroom_price, pl.mv_tax_rate, pl.green_tax, pl.extra_rto_charges)->>'total')::numeric,
+    pl.road_tax_registration);
+$$;
 
 create or replace function price_list_set_rto_amount()
 returns trigger
@@ -121,9 +125,7 @@ language plpgsql
 set search_path = public
 as $$
 begin
-  NEW.rto_amount := coalesce(
-    (rto_normal(NEW.variant_id, NEW.ex_showroom_price, NEW.mv_tax_rate)->>'total')::numeric,
-    NEW.road_tax_registration);
+  NEW.rto_amount := price_list_rto_total(NEW);
   return NEW;
 end;
 $$;
@@ -137,11 +139,9 @@ language sql
 set search_path = public
 as $$
   update price_list pl
-  set rto_amount = coalesce((rto_normal(pl.variant_id, pl.ex_showroom_price, pl.mv_tax_rate)->>'total')::numeric,
-                            pl.road_tax_registration)
+  set rto_amount = price_list_rto_total(pl)
   where (p_variant_id is null or pl.variant_id = p_variant_id)
-    and pl.rto_amount is distinct from coalesce(
-      (rto_normal(pl.variant_id, pl.ex_showroom_price, pl.mv_tax_rate)->>'total')::numeric, pl.road_tax_registration);
+    and pl.rto_amount is distinct from price_list_rto_total(pl);
 $$;
 
 create or replace function rto_inputs_changed()
@@ -160,10 +160,8 @@ end;
 $$;
 create trigger trg_rto_settings_refresh after insert or update or delete on rto_settings
   for each statement execute function rto_inputs_changed();
-create trigger trg_green_tax_slabs_refresh after insert or update or delete on green_tax_slabs
-  for each statement execute function rto_inputs_changed();
-create trigger trg_variants_rto_refresh after update of engine_cc, fuel_type_id on variants
-  for each row when (OLD.engine_cc is distinct from NEW.engine_cc or OLD.fuel_type_id is distinct from NEW.fuel_type_id)
+create trigger trg_variants_rto_refresh after update of fuel_type_id on variants
+  for each row when (OLD.fuel_type_id is distinct from NEW.fuel_type_id)
   execute function rto_inputs_changed();
 
 -- ===== One row per variant: fold colour / paint rows =====
@@ -246,8 +244,28 @@ alter table price_list add constraint price_list_one_row_per_variant
 create unique index uq_price_list_variant_list_state_from
   on price_list(variant_id, list_type, state, effective_from);
 
--- Stored RTO amounts for the rows that remain.
-update price_list set rto_amount = road_tax_registration;
+-- e) RTO inputs for every row, from the RTO calculation sheet (see the header). The trigger then
+--    stores the worked-out RTO. Rows whose model is not listed keep the printed figure until an
+--    MV tax rate is entered.
+update price_list pl
+set mv_tax_rate = case
+      when lower(f.name) in ('ev', 'electric') then 0
+      when pl.list_type = 'commercial' then 10.00248
+      when f.name = 'Diesel' then 12
+      when m.name = 'Glanza' then 9
+      when m.name = 'Urban Cruiser Taisor' then 9.004724409
+      when f.name in ('Petrol', 'CNG', 'Hybrid') then 10
+    end,
+    green_tax = case
+      when lower(f.name) in ('ev', 'electric') or pl.list_type = 'commercial' then 0
+      when f.name = 'Diesel' or m.name = 'Innova Hycross' or m.name ilike 'Vellfire%' then 7500
+      else 2500
+    end,
+    extra_rto_charges = case when m.name = 'Innova Hycross' then 1000 else 0 end
+from variants v
+join models m on m.id = v.model_id
+left join fuel_types f on f.id = v.fuel_type_id
+where v.id = pl.variant_id;
 
 -- ===== Pricing engine =====
 create or replace function calculate_price(selections jsonb)
@@ -439,10 +457,10 @@ begin
   v_line_items := v_line_items || jsonb_build_array(jsonb_build_object('type','tax','label', format('TCS @ %s%%', v_tcs_rate), 'amount', v_tcs_amount));
 
   -- 5. RTO (Normal registration), worked out as Techwheels does (rto_normal) on the ex-showroom
-  -- price including the colour difference. Until the row's MV tax rate and the RTO settings are
-  -- filled in, the list's printed Road Tax & Registration is used, then rto_pricing (variant-level
+  -- price including the colour difference. A row with no MV tax rate (or a list with no RTO
+  -- settings) uses the list's printed Road Tax & Registration, then rto_pricing (variant-level
   -- pricing takes precedence over model-level). Then the scrap certificate.
-  v_rto_amount := (rto_normal(v_variant_id, v_ex_showroom + v_color_extra, v_pl.mv_tax_rate)->>'total')::numeric;
+  v_rto_amount := (rto_normal(v_variant_id, v_list_type, v_ex_showroom + v_color_extra, v_pl.mv_tax_rate, v_pl.green_tax, v_pl.extra_rto_charges)->>'total')::numeric;
   if v_rto_amount is null then
     v_rto_amount := v_pl.road_tax_registration;
   end if;
