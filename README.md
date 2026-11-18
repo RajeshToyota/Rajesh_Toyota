@@ -13,14 +13,35 @@ ever revisited.
 
 - `supabase/migrations/` — versioned SQL migrations (schema, RLS, seed data)
 - `supabase/functions/` — Edge Functions (added in Phase 1: `price-quote`)
-- `dashboard/` — Next.js admin dashboard (added in Phase 2)
-- `docs/ROADMAP.md` — full enquiry-to-delivery plan (Phases 6–15)
+- `web/` — React + Vite staff web app, built the same way as Techwheels (Phase 17a). It replaces
+  `dashboard/`; see `docs/TECHWHEELS_PARITY_PLAN.md`
+- `dashboard/` — the original Next.js admin dashboard (Phase 2). Kept running until `web/` is signed
+  off, then retired
+- `docs/ROADMAP.md` — full enquiry-to-delivery plan (Phases 6–16)
+- `docs/TECHWHEELS_PARITY_PLAN.md` — Phases 17–22: bring the app to Techwheels parity
 - `scripts/seed/` — generators for master data (price lists, accessories, EW, TKM codes) and for
   importing open CTDMS orders; `scripts/localdb/` — apply all migrations to a local Postgres
 - `supabase/tests/` — SQL checks run against a scratch database
 - `mobile/` — Expo mobile app (added in Phase 3+)
 
-## Dashboard environment
+## Web app (`web/`)
+
+```
+cd web && cp .env.example .env.local   # fill in the anon key
+npm install && npm run dev
+```
+
+- `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`: the project URL and publishable key.
+- `VITE_SITE_URL` (optional): the public address used in login-invite emails; defaults to the
+  address the app is opened at.
+- HR login invites and blocking a leaver's login run in the `employee-login` edge function
+  (`supabase/functions/employee-login`), which needs no extra setup beyond deploying it: Supabase
+  gives edge functions the service-role key.
+- Hosting: Vercel, static build (`npm run build` → `dist/`), single-page rewrite in `web/vercel.json`.
+- The pages were moved over from `dashboard/` unchanged and run through a small Next.js
+  compatibility layer (`web/src/compat/README.md`). New pages are plain React, as in Techwheels.
+
+## Dashboard environment (old Next.js app)
 
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`: the project URL and publishable key.
 - `SUPABASE_SERVICE_ROLE_KEY` (server only; never prefix with `NEXT_PUBLIC_`): lets HR send login
