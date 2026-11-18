@@ -22,9 +22,24 @@ type RbacState = {
   rights: Set<string>;
   groups: MenuGroup[];
   modules: AppModule[];
+  // Admin "preview as employee" (Techwheels' startEmployeePreview): the menu and buttons show what
+  // that person would see. The database still checks the Admin's own rights on every call.
+  preview: { employeeId: string; name: string } | null;
+  ownRights: Set<string> | null;
+  ownIsAdmin: boolean;
 };
 
-const empty: RbacState = { loaded: false, available: false, isAdmin: false, rights: new Set(), groups: [], modules: [] };
+const empty: RbacState = {
+  loaded: false,
+  available: false,
+  isAdmin: false,
+  rights: new Set(),
+  groups: [],
+  modules: [],
+  preview: null,
+  ownRights: null,
+  ownIsAdmin: false,
+};
 
 // The signed-in employee's module rights and the menu, loaded once at sign-in (Techwheels' RBAC store).
 export const useRbacStore = create<RbacState>(() => empty);
@@ -48,6 +63,28 @@ export async function loadRbac(roleRank: number | null) {
     groups: groups.data as MenuGroup[],
     modules: modules.data as AppModule[],
   });
+}
+
+export async function startPreview(employeeId: string, name: string) {
+  const { data, error } = await supabase.rpc("employee_effective_rights", { p_employee_id: employeeId });
+  if (error) throw new Error(error.message);
+  const rights = new Set(
+    (data as { module_key: string; right: string; allowed: boolean }[]).filter((r) => r.allowed).map((r) => `${r.module_key}:${r.right}`),
+  );
+  const s = useRbacStore.getState();
+  useRbacStore.setState({
+    preview: { employeeId, name },
+    ownRights: s.ownRights ?? s.rights,
+    rights,
+    isAdmin: false,
+    ownIsAdmin: s.preview ? s.ownIsAdmin : s.isAdmin,
+  });
+}
+
+export function stopPreview() {
+  const s = useRbacStore.getState();
+  if (!s.preview) return;
+  useRbacStore.setState({ preview: null, rights: s.ownRights ?? new Set(), ownRights: null, isAdmin: s.ownIsAdmin });
 }
 
 export function resetRbac() {

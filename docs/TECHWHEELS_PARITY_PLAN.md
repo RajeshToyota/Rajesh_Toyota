@@ -2,6 +2,9 @@
 
 > **Status (18 Nov 2026):** Phases 17a–22 are built and tested on a local database. Their database migrations are on the live project since 18 Nov; the web app is not deployed yet. See the "Phases 17–22" section of `docs/ROADMAP.md` for what shipped and what is left before go-live.
 
+## Round 2
+Phases 23–33 (the deeper Techwheels logic for each module: Access Studio, payroll, catalog and pricing masters, quotes, booking documents and refunds, stock and yard, pool extras, finance claims, the ten Ops Billing screens, PDI and delivery, used cars and reception) are planned in `docs/TECHWHEELS_PARITY_ROUND2.md`.
+
 ## Context
 Goal: Rajesh Toyota should work like Techwheels, with the same logic and modules.
 

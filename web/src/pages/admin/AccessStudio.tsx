@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { must, useQuery } from "@/lib/query";
-import type { AppModule, MenuGroup, Right } from "@/lib/rbac";
+import { startPreview, type AppModule, type MenuGroup, type Right } from "@/lib/rbac";
 import { useCurrentEmployee } from "@/lib/auth";
 import {
   Card,
@@ -21,27 +21,55 @@ import {
 
 const RIGHTS: Right[] = ["view", "create", "edit", "approve", "delete"];
 
-type Role = { id: string; name: string; rank: number };
-type Employee = { id: string; name: string; role_id: string | null; is_active: boolean };
-type Effective = { module_key: string; right: Right; allowed: boolean; source: "admin" | "grant" | "revoke" | "role" | "none" };
+type Role = { id: string; name: string; rank: number; department_code: string | null };
+type Employee = { id: string; name: string; role_id: string | null; is_active: boolean; outlet_id: string | null };
+type Effective = {
+  module_key: string;
+  right: Right;
+  allowed: boolean;
+  source: "admin" | "grant" | "revoke" | "role" | "none";
+  role_has: boolean;
+  override: "grant" | "revoke" | null;
+};
+type Named = { id: string; name: string };
+type Department = { code: string; name: string };
+type ModuleRow = AppModule & { own_only: boolean; hierarchy_scope: "all" | "limited"; scope_departments: string[] };
+type Base = {
+  groups: MenuGroup[];
+  modules: ModuleRow[];
+  roles: Role[];
+  employees: Employee[];
+  outlets: Named[];
+  financiers: Named[];
+  departments: Department[];
+};
 
 // Who can do what (Techwheels' Employee Access Studio): rights per role, personal grants and revokes,
 // and switching modules on or off. Only the Admin and the Business Head get here.
 export default function AccessStudio() {
   const [tab, setTab] = useState("roles");
   const base = useQuery(async () => {
-    const [groups, modules, roles, employees] = await Promise.all([
+    const [groups, modules, roles, employees, outlets, financiers, departments] = await Promise.all([
       supabase.from("menu_groups").select("key, title, sort_order").order("sort_order"),
-      supabase.from("app_modules").select("key, group_key, label, path, sort_order, in_menu, is_active").order("sort_order"),
-      supabase.from("roles").select("id, name, rank").order("rank").order("name"),
-      supabase.from("employees").select("id, name, role_id, is_active").eq("is_active", true).order("name"),
+      supabase
+        .from("app_modules")
+        .select("key, group_key, label, path, sort_order, in_menu, is_active, own_only, hierarchy_scope, scope_departments")
+        .order("sort_order"),
+      supabase.from("roles").select("id, name, rank, department_code").order("rank").order("name"),
+      supabase.from("employees").select("id, name, role_id, is_active, outlet_id").eq("is_active", true).order("name"),
+      supabase.from("outlets").select("id, name").order("name"),
+      supabase.from("financiers").select("id, name").eq("is_active", true).order("name"),
+      supabase.from("departments").select("code, name").eq("is_active", true).order("sort_order"),
     ]);
     return {
       groups: must(groups) as MenuGroup[],
-      modules: must(modules) as AppModule[],
+      modules: must(modules) as ModuleRow[],
       roles: must(roles) as Role[],
       employees: must(employees) as Employee[],
-    };
+      outlets: must(outlets) as Named[],
+      financiers: must(financiers) as Named[],
+      departments: must(departments) as Department[],
+    } satisfies Base;
   }, []);
 
   return (
@@ -67,7 +95,7 @@ export default function AccessStudio() {
           ) : tab === "people" ? (
             <PeopleTab {...d} />
           ) : tab === "modules" ? (
-            <ModulesTab groups={d.groups} modules={d.modules} />
+            <ModulesTab groups={d.groups} modules={d.modules} departments={d.departments} />
           ) : (
             <LogTab />
           )
@@ -128,8 +156,9 @@ function RolesTab({ groups, modules, roles }: { groups: MenuGroup[]; modules: Ap
   );
 }
 
-function PeopleTab({ groups, modules, roles, employees }: { groups: MenuGroup[]; modules: AppModule[]; roles: Role[]; employees: Employee[] }) {
+function PeopleTab({ groups, modules, roles, employees, outlets, financiers }: Base) {
   const [employeeId, setEmployeeId] = useState("");
+  const person = employees.find((e) => e.id === employeeId);
   const roleName = (id: string | null) => roles.find((r) => r.id === id)?.name ?? "No role";
   const effective = useQuery(async () => {
     if (!employeeId) return null;
@@ -157,10 +186,15 @@ function PeopleTab({ groups, modules, roles, employees }: { groups: MenuGroup[];
           placeholder="Pick someone"
           options={employees.map((e) => ({ id: e.id, name: `${e.name} · ${roleName(e.role_id)}` }))}
         />
+        {person && (
+          <RunButton tone="light" label="Preview as this person" run={() => startPreview(person.id, person.name)} />
+        )}
         <span className="text-xs text-slate-400">
-          Click a cell: <Chip tone="emerald">grant</Chip> → <Chip tone="red">revoke</Chip> → back to the role.
+          Click a cell: <Chip tone="emerald">grant</Chip> → <Chip tone="red">revoke</Chip> → back to the role. A dot means the role gives it.
         </span>
       </div>
+      {person && <EmployeeRoles key={person.id} employee={person} roles={roles} outlets={outlets} />}
+      {person && <FinancierScope key={`f-${person.id}`} employeeId={person.id} financiers={financiers} />}
       {!employeeId ? (
         <p className="py-6 text-center text-sm text-slate-400">Pick an employee to see what they can do and why.</p>
       ) : (
@@ -173,8 +207,14 @@ function PeopleTab({ groups, modules, roles, employees }: { groups: MenuGroup[];
                   const e = map.get(`${m.key}:${r}`);
                   const tone = e?.source === "grant" ? "emerald" : e?.source === "revoke" ? "red" : e?.allowed ? "blue" : "slate";
                   return (
-                    <button type="button" onClick={() => cycle(m.key, r, e)} title={e?.source} disabled={e?.source === "admin"}>
+                    <button
+                      type="button"
+                      onClick={() => cycle(m.key, r, e)}
+                      title={`role: ${e?.role_has ? "yes" : "no"} · override: ${e?.override ?? "none"} · result: ${e?.allowed ? "allowed" : "not allowed"}`}
+                      disabled={e?.source === "admin"}
+                    >
                       <Chip tone={tone}>{e?.allowed ? "✓" : "–"}</Chip>
+                      {e?.role_has && <span className="ml-0.5 text-slate-400">•</span>}
                     </button>
                   );
                 }}
@@ -220,11 +260,11 @@ function RightsMatrix({
   );
 }
 
-function ModulesTab({ groups, modules }: { groups: MenuGroup[]; modules: AppModule[] }) {
-  const byGroup = useMemo(() => grouped(groups, modules), [groups, modules]);
+function ModulesTab({ groups, modules, departments }: { groups: MenuGroup[]; modules: ModuleRow[]; departments: Department[] }) {
+  const byGroup = useMemo(() => grouped(groups, modules) as { group: MenuGroup; modules: ModuleRow[] }[], [groups, modules]);
   return (
-    <Card note="Switch a module off to hide it from everyone except the Admin, e.g. a new phase before go-live.">
-      <Table head={["Module", "Menu", "Path", "Status", ""]}>
+    <Card note="Switch a module off to hide it from everyone except the Admin, e.g. a new phase before go-live. Visibility: 'own only' shows people only their own records; a limited scope only records of staff in the chosen departments.">
+      <Table head={["Module", "Menu", "Path", "Status", "Visibility", ""]}>
         {byGroup.flatMap(({ group, modules }) =>
           modules.map((m) => (
             <tr key={m.key}>
@@ -235,6 +275,9 @@ function ModulesTab({ groups, modules }: { groups: MenuGroup[]; modules: AppModu
               <Td muted>{group.title}</Td>
               <Td muted>{m.path ?? "—"}</Td>
               <Td>{m.is_active ? <Chip tone="emerald">On</Chip> : <Chip>Off</Chip>}</Td>
+              <Td>
+                <Visibility module={m} departments={departments} />
+              </Td>
               <Td>
                 <RunButton
                   tone="light"
@@ -286,5 +329,156 @@ function LogTab() {
         )}
       </Table>
     </Card>
+  );
+}
+
+// Extra roles, each for one branch or every branch (Techwheels' employee_assignments). The first row
+// is the primary role, which follows the employee's own branch.
+function EmployeeRoles({ employee, roles, outlets }: { employee: Employee; roles: Role[]; outlets: Named[] }) {
+  type Row = { role_id: string; outlet_id: string; is_global: boolean };
+  const extra = useQuery(
+    async () =>
+      must(
+        await supabase.from("employee_role_assignments").select("role_id, outlet_id, is_global").eq("employee_id", employee.id),
+      ) as { role_id: string; outlet_id: string | null; is_global: boolean }[],
+    [employee.id],
+  );
+  const [rows, setRows] = useState<Row[] | null>(null);
+  const current: Row[] =
+    rows ??
+    [
+      { role_id: employee.role_id ?? "", outlet_id: "", is_global: false },
+      ...(extra.data ?? []).map((a) => ({ role_id: a.role_id, outlet_id: a.outlet_id ?? "", is_global: a.is_global })),
+    ];
+  const set = (i: number, patch: Partial<Row>) => setRows(current.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const roleOptions = roles.map((r) => ({ id: r.id, name: r.name }));
+  const scopeOptions = [{ id: "*", name: "Every branch" }, ...outlets];
+
+  return (
+    <Card title="Roles" note="Rights from every role add up. The first role is the primary one (it decides rank and approvals).">
+      <div className="space-y-2 px-3 py-2 text-sm">
+        {current.map((r, i) => (
+          <div key={i} className="flex flex-wrap items-center gap-2">
+            <Select value={r.role_id} onChange={(v) => set(i, { role_id: v })} options={roleOptions} placeholder="Role" />
+            {i === 0 ? (
+              <span className="text-xs text-slate-500">Primary · own branch</span>
+            ) : (
+              <>
+                <Select
+                  value={r.is_global ? "*" : r.outlet_id}
+                  onChange={(v) => set(i, v === "*" ? { is_global: true, outlet_id: "" } : { is_global: false, outlet_id: v })}
+                  options={scopeOptions}
+                  placeholder="Branch"
+                />
+                <button type="button" className="text-xs text-red-600" onClick={() => setRows(current.filter((_, j) => j !== i))}>
+                  Remove
+                </button>
+              </>
+            )}
+          </div>
+        ))}
+        <div className="flex gap-2">
+          <RunButton tone="light" label="Add role" run={async () => setRows([...current, { role_id: "", outlet_id: "", is_global: true }])} />
+          <RunButton
+            label="Save roles"
+            disabled={!rows}
+            run={async () => {
+              if (current.some((r, i) => !r.role_id || (i > 0 && !r.is_global && !r.outlet_id))) throw new Error("Pick a role and branch on every row");
+              await rpc("set_employee_roles", { p_employee_id: employee.id, p_roles: current });
+              setRows(null);
+            }}
+          />
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// Finance executives can be limited to some financiers; none ticked means every financier.
+function FinancierScope({ employeeId, financiers }: { employeeId: string; financiers: Named[] }) {
+  const scope = useQuery(
+    async () =>
+      new Set(
+        (must(await supabase.from("employee_financier_scope").select("financier_id").eq("employee_id", employeeId)) as { financier_id: string }[]).map(
+          (r) => r.financier_id,
+        ),
+      ),
+    [employeeId],
+  );
+  if (!financiers.length) return null;
+  return (
+    <Card title="Financiers" note="For finance executives: which financiers' cases they work. None ticked = all.">
+      <Loaded q={scope}>
+        {(have) => (
+          <div className="flex flex-wrap gap-3 px-3 py-2 text-sm">
+            {financiers.map((f) => (
+              <label key={f.id} className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={have.has(f.id)}
+                  onChange={() => {
+                    const next = new Set(have);
+                    if (next.has(f.id)) next.delete(f.id);
+                    else next.add(f.id);
+                    rpc("set_employee_financier_scope", { p_employee_id: employeeId, p_financier_ids: [...next] }).catch((e) => alert(e.message));
+                  }}
+                />
+                {f.name}
+              </label>
+            ))}
+          </div>
+        )}
+      </Loaded>
+    </Card>
+  );
+}
+
+function Visibility({ module: m, departments }: { module: ModuleRow; departments: Department[] }) {
+  const [open, setOpen] = useState(false);
+  const [ownOnly, setOwnOnly] = useState(m.own_only);
+  const [limited, setLimited] = useState(m.hierarchy_scope === "limited");
+  const [deps, setDeps] = useState<string[]>(m.scope_departments);
+  const label = m.own_only ? "Own only" : m.hierarchy_scope === "limited" ? `Only ${m.scope_departments.join(", ")}` : "Team / branch";
+  if (!open)
+    return (
+      <button type="button" className="text-xs text-slate-600 underline decoration-dotted" onClick={() => setOpen(true)}>
+        {label}
+      </button>
+    );
+  return (
+    <div className="space-y-1 text-xs">
+      <label className="flex items-center gap-1">
+        <input type="checkbox" checked={ownOnly} onChange={(e) => setOwnOnly(e.target.checked)} /> Own records only
+      </label>
+      <label className="flex items-center gap-1">
+        <input type="checkbox" checked={limited} onChange={(e) => setLimited(e.target.checked)} /> Limit to departments
+      </label>
+      {limited && (
+        <div className="flex flex-wrap gap-2">
+          {departments.map((d) => (
+            <label key={d.code} className="flex items-center gap-1">
+              <input
+                type="checkbox"
+                checked={deps.includes(d.code)}
+                onChange={() => setDeps(deps.includes(d.code) ? deps.filter((x) => x !== d.code) : [...deps, d.code])}
+              />
+              {d.name}
+            </label>
+          ))}
+        </div>
+      )}
+      <RunButton
+        label="Save"
+        run={async () => {
+          await rpc("set_module_visibility", {
+            p_module: m.key,
+            p_own_only: ownOnly,
+            p_scope: limited ? "limited" : "all",
+            p_departments: limited ? deps : null,
+          });
+          setOpen(false);
+        }}
+      />
+    </div>
   );
 }

@@ -65,6 +65,14 @@ This plan extends the existing codebase. It does not replace it.
 - **Employees are created from the booking dump for now.** That means 30 SOs and 6 TLs at their branch, with SO → TL reporting. The full employee sheet will enrich them later. The employee file was not attached, so it still needs to be sent.
 - **Only orders with status Booked or Accepted are imported** as open bookings.
 
+## Phases 23–33 — Techwheels parity, round 2 — status: being built; nothing on live yet
+
+Plan and reasoning: `docs/TECHWHEELS_PARITY_ROUND2.md`. Each phase is a migration with a SQL test; `scripts/localdb/test.sh` runs them all.
+
+| Phase | What | Migration / test | Web (`web/`) |
+|---|---|---|---|
+| 23 | Departments master; extra roles per branch or global; right `all`; edit/delete need view; per-module visibility (own only, limited departments); reporting-hierarchy history with reasons, loop check and monthly snapshots; financier scope; access managed by right; admin preview-as-employee | `20261119000001_access_studio_depth` / `access_studio_depth.sql` | `/admin/access` (roles, financiers, visibility, preview), `/admin/departments`, `/admin/reporting-hierarchy` |
+
 ## Phases 17–22 — Techwheels parity — status: migrated to live (18 Nov); gate-pass and price-difference rules switched off
 
 Plan and reasoning: `docs/TECHWHEELS_PARITY_PLAN.md`. Each phase's database work is a migration with a

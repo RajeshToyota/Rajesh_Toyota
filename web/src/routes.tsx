@@ -38,4 +38,8 @@ export const phaseRoutes: { path: string; module?: string; Component: ComponentT
   { path: "/used-cars/evaluations", module: "used_car_evaluations", Component: lazy(() => import("@/pages/used/Evaluations")) },
   { path: "/used-cars/stock", module: "used_car_stock", Component: lazy(() => import("@/pages/used/Stock")) },
   { path: "/used-cars/summary", module: "rpt_used_cars", Component: lazy(() => import("@/pages/used/Stock").then((m) => ({ default: m.UsedCarSummary }))) },
+
+  // Phase 23: Access Studio depth
+  { path: "/admin/departments", module: "departments", Component: lazy(() => import("@/pages/admin/Departments")) },
+  { path: "/admin/reporting-hierarchy", module: "reporting_hierarchy", Component: lazy(() => import("@/pages/admin/ReportingHierarchy")) },
 ];
