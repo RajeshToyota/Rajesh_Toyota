@@ -18,4 +18,11 @@ export const phaseRoutes: { path: string; module?: string; Component: ComponentT
   { path: "/rm/booking/:id", module: "rm_console", Component: lazy(() => import("@/pages/crm/RmBooking")) },
   { path: "/reports/walkins", module: "rpt_walkins", Component: lazy(() => import("@/pages/crm/Reports").then((m) => ({ default: m.WalkinReport }))) },
   { path: "/reports/followups", module: "rpt_followups", Component: lazy(() => import("@/pages/crm/Reports").then((m) => ({ default: m.FollowupReport }))) },
+
+  // Phase 20: targets and incentives
+  { path: "/targets", module: "targets", Component: lazy(() => import("@/pages/incentives/Targets")) },
+  { path: "/incentives", module: "incentives", Component: lazy(() => import("@/pages/incentives/Runs")) },
+  { path: "/incentives/schemes", module: "incentive_schemes", Component: lazy(() => import("@/pages/incentives/Schemes")) },
+  { path: "/incentives/bank-payouts", module: "bank_payouts", Component: lazy(() => import("@/pages/incentives/BankPayouts")) },
+  { path: "/incentives/me", module: "my_incentive", Component: lazy(() => import("@/pages/incentives/MyIncentive")) },
 ];

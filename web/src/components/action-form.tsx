@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 
 export type Field =
   | { name: string; placeholder: string; type?: "text" | "date" | "number" | "datetime-local" | "time"; required?: boolean; width?: string; initial?: string }
-  | { name: string; placeholder: string; options: { id: string; name: string }[]; required?: boolean; width?: string };
+  | { name: string; placeholder: string; options: { id: string; name: string }[]; required?: boolean; width?: string; initial?: string };
 
 // A small inline form for one stock action: hidden ids, optional inputs, a button, and the
 // database's refusal shown under it.
