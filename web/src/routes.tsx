@@ -42,4 +42,11 @@ export const phaseRoutes: { path: string; module?: string; Component: ComponentT
   // Phase 23: Access Studio depth
   { path: "/admin/departments", module: "departments", Component: lazy(() => import("@/pages/admin/Departments")) },
   { path: "/admin/reporting-hierarchy", module: "reporting_hierarchy", Component: lazy(() => import("@/pages/admin/ReportingHierarchy")) },
+
+  // Phase 24: catalog and pricing masters
+  { path: "/masters/catalog", module: "catalog", Component: lazy(() => import("@/pages/masters/Catalog")) },
+  { path: "/masters/insurance", module: "insurance_rates", Component: lazy(() => import("@/pages/masters/Insurance")) },
+  { path: "/masters/rto", module: "rto_settings", Component: lazy(() => import("@/pages/masters/Rto")) },
+  { path: "/masters/schemes", module: "schemes", Component: lazy(() => import("@/pages/masters/Schemes")) },
+  { path: "/masters/discount-rules", module: "discount_rules", Component: lazy(() => import("@/pages/masters/DiscountRules")) },
 ];

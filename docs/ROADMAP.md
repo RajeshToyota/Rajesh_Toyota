@@ -72,6 +72,7 @@ Plan and reasoning: `docs/TECHWHEELS_PARITY_ROUND2.md`. Each phase is a migratio
 | Phase | What | Migration / test | Web (`web/`) |
 |---|---|---|---|
 | 23 | Departments master; extra roles per branch or global; right `all`; edit/delete need view; per-module visibility (own only, limited departments); reporting-hierarchy history with reasons, loop check and monthly snapshots; financier scope; access managed by right; admin preview-as-employee | `20261119000001_access_studio_depth` / `access_studio_depth.sql` | `/admin/access` (roles, financiers, visibility, preview), `/admin/departments`, `/admin/reporting-hierarchy` |
+| 24 | Variant tax data, colour photos, variant content; accessory rules (universal/excluded, top picks, packs); insurance engine (per-variant IDV/OD/TP, highest enabled OD discount, insurer add-on rates as % of IDV, mandatory zero-dep + consumables, cheapest insurer); RTO formula for BH / transfer / scrap and as fallback; ceramic coating; scheme categories, previous model-year amounts and start-date revisions; variant coupon cap, approved MR discount and a margin floor that sends the quote to the Business Head. New selections ride in `quotes/bookings.pricing_extras` | `20261119000002_catalog_pricing_masters` / `catalog_pricing_masters.sql` | `/masters/catalog`, `/masters/insurance`, `/masters/rto`, `/masters/schemes`, `/masters/discount-rules` |
 
 ## Phases 17–22 — Techwheels parity — status: migrated to live (18 Nov); gate-pass and price-difference rules switched off
 
