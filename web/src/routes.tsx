@@ -85,4 +85,9 @@ export const phaseRoutes: { path: string; module?: string; Component: ComponentT
 
   // Phase 32: payroll
   { path: "/payroll", module: "payroll", Component: lazy(() => import("@/pages/payroll/Payroll")) },
+
+  // Phase 33: used cars and reception
+  { path: "/used-cars/exchange", module: "used_car_exchange", Component: lazy(() => import("@/pages/used/Exchange")) },
+  { path: "/kiosk", module: "kiosk", Component: lazy(() => import("@/pages/crm/Kiosk")) },
+  { path: "/reception/ctdms-queue", module: "reception_ctdms", Component: lazy(() => import("@/pages/crm/CtdmsQueue")) },
 ];

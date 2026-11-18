@@ -109,7 +109,7 @@ select pg_temp.expect_error(format($f$select update_used_car('%s', '{"status": "
   'Enter the sale price and the buyer');
 select update_used_car((select id from t_ids where k = 'car'), '{"status": "refurbishing", "add_refurbishment": 20000}');
 select update_used_car((select id from t_ids where k = 'car'), '{"status": "listed", "listed_price": 975000}');
-select update_used_car((select id from t_ids where k = 'car'), '{"status": "sold", "sold_price": 940000, "buyer_name": "Next Owner", "buyer_mobile": "9850000005"}');
+select update_used_car((select id from t_ids where k = 'car'), '{"status": "sold", "sold_price": 940000, "buyer_name": "Next Owner", "buyer_mobile": "9850000005", "sale_type": "B2C"}');
 do $$ begin
   if (select margin from used_car_stock_list()) <> 100000 then raise exception 'margin should be 9.4L - 8.2L - 20k'; end if;
   perform pg_temp.expect_error(format($f$select update_used_car('%s', '{"notes": "x"}')$f$, (select id from t_ids where k = 'car')), 'This car has left stock');
