@@ -267,6 +267,13 @@ join models m on m.id = v.model_id
 left join fuel_types f on f.id = v.fuel_type_id
 where v.id = pl.variant_id;
 
+-- Rows whose printed figure the formula does not reproduce (to the rupee) keep the printed figure:
+-- Land Cruiser 300 and two Hycross commercial rows on the current lists. Their MV tax rate is
+-- left blank so the printed Road Tax & Registration is used.
+update price_list
+set mv_tax_rate = null
+where road_tax_registration is not null and abs(rto_amount - road_tax_registration) > 1;
+
 -- ===== Pricing engine =====
 create or replace function calculate_price(selections jsonb)
 returns jsonb
@@ -609,7 +616,5 @@ begin
   );
 end;
 $$;
-
-grant execute on function calculate_price(jsonb) to authenticated;
 
 grant execute on function calculate_price(jsonb) to authenticated;

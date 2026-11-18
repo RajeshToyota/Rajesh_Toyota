@@ -20,15 +20,16 @@ begin
   exception when check_violation then null;
   end;
 
-  -- The worked-out RTO matches the printed TKM figure (within 1 rupee of rounding) on every list
-  -- row except the few printed one-offs (Land Cruiser 300, two Hycross commercial rows).
+  -- The worked-out RTO matches the printed TKM figure (within 1 rupee of rounding) on every row;
+  -- the printed one-offs (Land Cruiser 300, two Hycross commercial rows) keep the printed figure.
   select string_agg(format('%s/%s: printed %s, worked out %s', v.name, p.list_type, p.road_tax_registration, p.rto_amount), '; ')
   into bad
-  from price_list p join variants v on v.id = p.variant_id join models m on m.id = v.model_id
-  where p.road_tax_registration is not null and abs(p.road_tax_registration - p.rto_amount) > 1
-    and m.name <> 'Land Cruiser 300'
-    and not (m.name = 'Innova Hycross' and p.list_type = 'commercial');
+  from price_list p join variants v on v.id = p.variant_id
+  where p.road_tax_registration is not null and abs(p.road_tax_registration - p.rto_amount) > 1;
   if bad is not null then raise exception 'RTO differs from the printed list: %', bad; end if;
+  select count(*) into n from price_list p join variants v on v.id = p.variant_id join models m on m.id = v.model_id
+  where m.name = 'Land Cruiser 300' and p.mv_tax_rate is not null;
+  if n <> 0 then raise exception 'Land Cruiser 300 should keep the printed RTO'; end if;
 
   -- Fortuner 4x2 MT (FRNBJ), diesel, private: 35,75,000 x 12% = 4,29,000; surcharge 53,625;
   -- green 7,500; fixed 4,200 -> 4,94,325 (as printed).
