@@ -49,4 +49,8 @@ export const phaseRoutes: { path: string; module?: string; Component: ComponentT
   { path: "/masters/rto", module: "rto_settings", Component: lazy(() => import("@/pages/masters/Rto")) },
   { path: "/masters/schemes", module: "schemes", Component: lazy(() => import("@/pages/masters/Schemes")) },
   { path: "/masters/discount-rules", module: "discount_rules", Component: lazy(() => import("@/pages/masters/DiscountRules")) },
+
+  // Phase 25: quotes workbench
+  { path: "/quotes", module: "quotes", Component: lazy(() => import("@/pages/quotes/Quotes")) },
+  { path: "/quotes/:id", module: "quotes", Component: lazy(() => import("@/pages/quotes/QuoteDetail")) },
 ];
