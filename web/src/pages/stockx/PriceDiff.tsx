@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@/lib/query";
+import { supabase } from "@/lib/supabase/client";
+import { must, useQuery } from "@/lib/query";
+import { useCurrentEmployee } from "@/lib/auth";
 import { useRightGate } from "@/lib/rbac";
-import { ActionForm, Card, Chip, EmptyRow, Loaded, PageHeader, Table, Tabs, Td, fmtDate, inr, rpc, rpcRows, str } from "@/ui";
+import { ActionForm, Card, Chip, EmptyRow, Loaded, PageHeader, RunButton, Table, Tabs, Td, fmtDate, inr, rpc, rpcRows, str } from "@/ui";
 
 type Row = {
   booking_id: string;
@@ -29,9 +31,29 @@ export default function PriceDiff() {
   const q = useQuery(() => rpcRows<Row>("price_diff_list", { p_open_only: open === "open" }), [open]);
   const canCollect = useRightGate("price_diff", "edit");
   const canWaive = useRightGate("price_diff", "approve");
+  const me = useCurrentEmployee();
+  const cfg = useQuery(async () => must(await supabase.from("pool_config").select("price_diff_blocks").single()) as { price_diff_blocks: boolean }, []);
+  const on = cfg.data?.price_diff_blocks;
   return (
     <div>
       <PageHeader title="Price Difference" note="Ex-showroom on the day the booking was priced vs today. While open, the booking cannot win a car in the allotment pool." />
+      {cfg.data && (
+        <Card
+          title={on ? "Rule is ON: open differences hold bookings back in the pool" : "Rule is OFF: differences are listed but do not hold anyone back"}
+          aside={
+            me?.roleRank != null && me.roleRank <= 1 ? (
+              <RunButton
+                tone={on ? "danger" : "dark"}
+                label={on ? "Switch off" : "Switch on"}
+                confirm={on ? "Stop holding bookings back for price differences?" : "Hold back bookings with an open price difference? A pool winner whose price rose can lose their car until it is collected or waived."}
+                run={() => rpc("set_price_diff_blocks", { p_on: !on })}
+              />
+            ) : undefined
+          }
+        >
+          <span />
+        </Card>
+      )}
       <Tabs current={open} onChange={setOpen} tabs={[{ id: "open", label: "Open" }, { id: "all", label: "All with a difference" }]} />
       <Card>
         <Loaded q={q}>

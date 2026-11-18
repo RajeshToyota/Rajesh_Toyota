@@ -35,7 +35,9 @@ select seed_role_rights(r, m, x) from (values
 ) v(r, m, x);
 
 -- ===== Price difference =====
-alter table pool_config add column price_diff_blocks boolean not null default true;
+-- Off until switched on deliberately: the pool may already be live, and turning this on can take a car
+-- back from a winner whose price has risen since booking.
+alter table pool_config add column price_diff_blocks boolean not null default false;
 
 create table booking_price_diff_resolutions (
   id uuid primary key default gen_random_uuid(),
@@ -202,6 +204,22 @@ begin
     and (not p_open_only or coalesce(d.resolved, 0) < d.difference)
     and ops_branch_ok(b.outlet_id) and (p_outlet_id is null or b.outlet_id = p_outlet_id)
   order by d.difference desc;
+end;
+$$;
+
+-- Switch the price-difference rule on or off (Admin / Business Head), logged in the pool audit.
+create or replace function set_price_diff_blocks(p_on boolean)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not coalesce(current_employee_role_rank() <= 1, false) then
+    raise exception 'Only the Admin or Business Head can change this';
+  end if;
+  update pool_config set price_diff_blocks = p_on, updated_by = current_employee_id(), updated_at = now();
+  perform pool_log('config_change', null, null, null, null, jsonb_build_object('price_diff_blocks', p_on));
 end;
 $$;
 
@@ -674,7 +692,7 @@ declare
   f text;
 begin
   foreach f in array array[
-    'booking_price_difference(uuid)', 'resolve_price_difference(uuid, text, text)', 'price_diff_list(uuid, boolean)',
+    'booking_price_difference(uuid)', 'resolve_price_difference(uuid, text, text)', 'set_price_diff_blocks(boolean)', 'price_diff_list(uuid, boolean)',
     'set_stock_control(uuid, text, text)', 'clear_stock_control(uuid, text)', 'request_stock_transfer(uuid, uuid, text)',
     'move_stock_transfer(uuid, text, text)', 'stock_transfer_list(boolean)', 'log_vehicle_movement(uuid, text, uuid, text, int, numeric)',
     'yard_stock(uuid)', 'import_other_dealer_stock(text, text, text, text, jsonb)', 'vna_other_dealer_matches(uuid)',

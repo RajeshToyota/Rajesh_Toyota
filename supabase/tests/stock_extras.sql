@@ -38,6 +38,7 @@ select '00000000-0000-0000-00bb-000000000071', '00000000-0000-0000-0002-00000000
        'Pricey Buyer', v.id, c.id, '00000000-0000-0000-000b-000000000001', 'premium', 'Cash', true, 'Cash', 50000, 'private',
        now() - interval '30 days', now() - interval '30 days'
 from variants v, colors c where v.tkm_suffix_code = 'D22U4' and c.tkm_color_code = 'ZHJ';
+update pool_config set price_diff_blocks = true;
 -- (The pricing trigger stamps priced_as_of at insert; back-date it as if priced a month ago.)
 update bookings set priced_as_of = now() - interval '30 days' where id = '00000000-0000-0000-00bb-000000000071';
 insert into price_list (variant_id, state, list_type, paint_category, ex_showroom_price, effective_from)
