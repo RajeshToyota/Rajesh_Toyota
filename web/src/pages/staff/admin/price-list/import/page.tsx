@@ -7,13 +7,14 @@ import { parseCsv } from "@/lib/csv";
 
 const REQUIRED_FIELDS = [
   { key: "variant", label: "Variant name (must match Variants exactly)" },
-  { key: "color", label: "Color name (must match Colors exactly)" },
   { key: "state", label: "State" },
   { key: "ex_showroom_price", label: "Ex-Showroom Price" },
   { key: "effective_from", label: "Effective From (YYYY-MM-DD)" },
 ] as const;
 
 const OPTIONAL_FIELDS = [
+  { key: "list_type", label: "List (private / commercial / csd; blank = private)" },
+  { key: "mv_tax_rate", label: "MV Tax Rate (%)" },
   { key: "dealer_purchase_price", label: "Dealer Purchase Price" },
   { key: "effective_to", label: "Effective To (YYYY-MM-DD)" },
 ] as const;
@@ -27,12 +28,20 @@ type Step = "upload" | "map" | "preview" | "done";
 type PreviewRow = {
   raw: Record<FieldKey, string>;
   variantId: string | null;
-  colorId: string | null;
+  listType: string;
   status: "new" | "update" | "unchanged" | "error";
   message?: string;
   existingId?: string;
   existingPrice?: number;
+  existing?: Record<string, unknown>;
 };
+
+// Carried over from the row being superseded, so a new price keeps the list's other figures.
+const CARRY_OVER = [
+  "mv_tax_rate", "tcs_amount", "road_tax_registration", "insurance_options", "fastag_amount",
+  "ew_5th_year_amount", "tgloss_package_amount", "tga_combo_amount", "essential_kit_amount",
+  "smile_package_amount", "on_road_listed", "source_file",
+] as const;
 
 function guessMapping(headers: string[]): Partial<Record<FieldKey, string>> {
   const mapping: Partial<Record<FieldKey, string>> = {};
@@ -76,14 +85,12 @@ export default function PriceListImportPage() {
     setProcessing(true);
 
     const { data: variants } = await supabase.from("variants").select("id, name");
-    const { data: colors } = await supabase.from("colors").select("id, name");
     const { data: activePrices } = await supabase
       .from("price_list")
-      .select("id, variant_id, color_id, state, ex_showroom_price")
+      .select("*")
       .is("effective_to", null);
 
     const variantByName = new Map((variants ?? []).map((v) => [v.name.trim().toLowerCase(), v.id]));
-    const colorByName = new Map((colors ?? []).map((c) => [c.name.trim().toLowerCase(), c.id]));
 
     const rows: PreviewRow[] = dataRows.map((cells) => {
       const raw = {} as Record<FieldKey, string>;
@@ -94,28 +101,32 @@ export default function PriceListImportPage() {
       }
 
       const variantId = variantByName.get(raw.variant.trim().toLowerCase()) ?? null;
-      const colorId = colorByName.get(raw.color.trim().toLowerCase()) ?? null;
+      const listType = (raw.list_type || "private").trim().toLowerCase();
 
-      if (!variantId) return { raw, variantId, colorId, status: "error", message: `Unknown variant "${raw.variant}"` };
-      if (!colorId) return { raw, variantId, colorId, status: "error", message: `Unknown color "${raw.color}"` };
-      if (!raw.state) return { raw, variantId, colorId, status: "error", message: "Missing state" };
+      if (!variantId) return { raw, variantId, listType, status: "error", message: `Unknown variant "${raw.variant}"` };
+      if (!["private", "commercial", "csd"].includes(listType))
+        return { raw, variantId, listType, status: "error", message: `Unknown list "${raw.list_type}"` };
+      if (!raw.state) return { raw, variantId, listType, status: "error", message: "Missing state" };
       if (!raw.ex_showroom_price || Number.isNaN(Number(raw.ex_showroom_price)))
-        return { raw, variantId, colorId, status: "error", message: "Missing/invalid ex_showroom_price" };
-      if (!raw.effective_from) return { raw, variantId, colorId, status: "error", message: "Missing effective_from" };
+        return { raw, variantId, listType, status: "error", message: "Missing/invalid ex_showroom_price" };
+      if (raw.mv_tax_rate && Number.isNaN(Number(raw.mv_tax_rate)))
+        return { raw, variantId, listType, status: "error", message: "Invalid mv_tax_rate" };
+      if (!raw.effective_from) return { raw, variantId, listType, status: "error", message: "Missing effective_from" };
 
       const existing = (activePrices ?? []).find(
-        (p) => p.variant_id === variantId && p.color_id === colorId && p.state === raw.state,
+        (p) => p.variant_id === variantId && p.list_type === listType && p.state === raw.state,
       );
 
       if (!existing) {
-        return { raw, variantId, colorId, status: "new" };
+        return { raw, variantId, listType, status: "new" };
       }
 
-      if (Number(existing.ex_showroom_price) === Number(raw.ex_showroom_price)) {
-        return { raw, variantId, colorId, status: "unchanged", existingId: existing.id, existingPrice: existing.ex_showroom_price };
+      const sameRate = !raw.mv_tax_rate || Number(raw.mv_tax_rate) === Number(existing.mv_tax_rate);
+      if (Number(existing.ex_showroom_price) === Number(raw.ex_showroom_price) && sameRate) {
+        return { raw, variantId, listType, status: "unchanged", existingId: existing.id, existingPrice: existing.ex_showroom_price };
       }
 
-      return { raw, variantId, colorId, status: "update", existingId: existing.id, existingPrice: existing.ex_showroom_price };
+      return { raw, variantId, listType, status: "update", existingId: existing.id, existingPrice: existing.ex_showroom_price, existing };
     });
 
     setPreview(rows);
@@ -143,9 +154,14 @@ export default function PriceListImportPage() {
         superseded++;
       }
 
+      const carried: Record<string, unknown> = {};
+      for (const key of CARRY_OVER) carried[key] = row.existing?.[key] ?? null;
+      if (!row.existing) carried.insurance_options = {};
       await supabase.from("price_list").insert({
+        ...carried,
         variant_id: row.variantId,
-        color_id: row.colorId,
+        list_type: row.listType,
+        mv_tax_rate: row.raw.mv_tax_rate ? Number(row.raw.mv_tax_rate) : carried.mv_tax_rate,
         state: row.raw.state,
         ex_showroom_price: Number(row.raw.ex_showroom_price),
         dealer_purchase_price: row.raw.dealer_purchase_price ? Number(row.raw.dealer_purchase_price) : null,
@@ -172,7 +188,7 @@ export default function PriceListImportPage() {
       {step === "upload" && (
         <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
           <p className="text-sm text-slate-600">
-            Upload a CSV with columns for variant, color, state, ex-showroom price, and effective
+            Upload a CSV with columns for variant, state, ex-showroom price, and effective
             date. Column names don&apos;t need to match exactly — you&apos;ll map them next.
           </p>
           <input type="file" accept=".csv" onChange={handleFile} className="mx-auto mt-4 block text-sm" />
@@ -235,7 +251,7 @@ export default function PriceListImportPage() {
                 <tr>
                   <th className="px-3 py-2 text-left">Status</th>
                   <th className="px-3 py-2 text-left">Variant</th>
-                  <th className="px-3 py-2 text-left">Color</th>
+                  <th className="px-3 py-2 text-left">List</th>
                   <th className="px-3 py-2 text-left">State</th>
                   <th className="px-3 py-2 text-left">New Price</th>
                   <th className="px-3 py-2 text-left">Old Price</th>
@@ -261,7 +277,7 @@ export default function PriceListImportPage() {
                       </span>
                     </td>
                     <td className="px-3 py-1.5">{row.raw.variant}</td>
-                    <td className="px-3 py-1.5">{row.raw.color}</td>
+                    <td className="px-3 py-1.5">{row.listType}</td>
                     <td className="px-3 py-1.5">{row.raw.state}</td>
                     <td className="px-3 py-1.5">{row.raw.ex_showroom_price}</td>
                     <td className="px-3 py-1.5">{row.existingPrice ?? "—"}</td>
