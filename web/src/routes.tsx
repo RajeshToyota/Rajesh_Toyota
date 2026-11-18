@@ -82,4 +82,7 @@ export const phaseRoutes: { path: string; module?: string; Component: ComponentT
   { path: "/ops-billing/schemes", module: "ops_scheme", Component: lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.SchemesStage }))) },
   { path: "/ops-billing/scrap", module: "ops_scrap", Component: lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.ScrapStage }))) },
   { path: "/ops-billing/receipts", module: "ops_receipts", Component: lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.ReceiptsStage }))) },
+
+  // Phase 32: payroll
+  { path: "/payroll", module: "payroll", Component: lazy(() => import("@/pages/payroll/Payroll")) },
 ];
