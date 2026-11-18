@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRbacStore } from "@/lib/rbac";
 import { entityGroups } from "@/lib/entities";
 
 type NavLink = { href: string; label: string };
 type NavGroup = { title: string; links?: NavLink[]; subgroups?: { title: string; links: NavLink[] }[] };
 
-const navGroups: NavGroup[] = [
+// Used until the permissions migration is on the database: the menu as it was before Phase 17b.
+const fallbackGroups: NavGroup[] = [
   {
     title: "Sales",
     links: [
@@ -54,21 +56,40 @@ const navGroups: NavGroup[] = [
       { href: "/reports/margin", label: "Margin Summary" },
     ],
   },
-  {
-    // Master data drills down one more level: group ▸ table.
-    title: "Masters",
-    subgroups: entityGroups.map((g) => ({
-      title: g.title,
-      links: g.entities.map((e) => ({ href: `/admin/${e.slug}`, label: e.title })),
-    })),
-  },
 ];
+
+// Master data drills down one more level: group ▸ table.
+const mastersSubgroups = entityGroups.map((g) => ({
+  title: g.title,
+  links: g.entities.map((e) => ({ href: `/admin/${e.slug}`, label: e.title })),
+}));
+
+// The menu comes from the database (menu_groups / app_modules) and shows only the screens the
+// employee has the view right on, as Techwheels' AdminPanel does.
+function useNavGroups(): NavGroup[] {
+  const { available, isAdmin, rights, groups, modules } = useRbacStore();
+  return useMemo(() => {
+    const canView = (key: string) => isAdmin || rights.has(`${key}:view`);
+    if (!available) return [...fallbackGroups, { title: "Masters", subgroups: mastersSubgroups }];
+    return groups
+      .map((g) => {
+        const links = modules
+          .filter((m) => m.group_key === g.key && m.in_menu && m.is_active && m.path && canView(m.key))
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map((m) => ({ href: m.path!, label: m.label }));
+        const subgroups = g.key === "masters" && canView("masters") ? mastersSubgroups : undefined;
+        return { title: g.title, links: links.length ? links : undefined, subgroups };
+      })
+      .filter((g) => g.links || g.subgroups);
+  }, [available, isAdmin, rights, groups, modules]);
+}
 
 const groupLinks = (g: NavGroup) => [...(g.links ?? []), ...(g.subgroups ?? []).flatMap((s) => s.links)];
 const groupCount = (g: NavGroup) => g.links?.length ?? g.subgroups?.length ?? 0;
 
 // Top navigation bar: each section opens a dropdown; Masters drills down into a second flyout.
 export function SidebarNav() {
+  const navGroups = useNavGroups();
   const pathname = usePathname();
   const [open, setOpen] = useState<string | null>(null);
   const [openSub, setOpenSub] = useState<string | null>(null);

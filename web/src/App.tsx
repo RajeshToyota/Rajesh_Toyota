@@ -6,6 +6,8 @@ import LoginPage from "@/pages/login/page";
 import SetPasswordPage from "@/pages/auth/set-password/page";
 import { ServerPage, type ServerComponent } from "@/compat/server-page";
 import { setNavigate } from "@/compat/navigate";
+import RequireModule from "@/components/RequireModule";
+import { phaseRoutes } from "@/routes";
 
 type Module = { default: ServerComponent };
 type Loader = () => Promise<Module>;
@@ -26,71 +28,79 @@ const bookingLayout: Loader = () => import("@/pages/staff/reports/bookings/[id]/
 const bookingFile = [reportsLayout, bookingLayout];
 
 // One row per screen. Paths are the same as in the old dashboard, so bookmarks and links keep working.
-const routes: { path: string; Component: ComponentType }[] = [
+export type RouteDef = { path: string; module?: string; Component: ComponentType };
+
+const routes: RouteDef[] = [
   // Reporting home
-  { path: "/", Component: ported(() => import("@/pages/staff/page")) },
+  { path: "/", module: "pipeline", Component: ported(() => import("@/pages/staff/page")) },
 
   // Sales
-  { path: "/enquiries", Component: ported(() => import("@/pages/staff/enquiries/page")) },
-  { path: "/enquiries/new", Component: ported(() => import("@/pages/staff/enquiries/new/page")) },
-  { path: "/crm-sync", Component: ported(() => import("@/pages/staff/crm-sync/page")) },
-  { path: "/finance", Component: ported(() => import("@/pages/staff/finance/page")) },
-  { path: "/finance/:id", Component: ported(() => import("@/pages/staff/finance/[id]/page")) },
+  { path: "/enquiries", module: "enquiries", Component: ported(() => import("@/pages/staff/enquiries/page")) },
+  { path: "/enquiries/new", module: "enquiries_new", Component: ported(() => import("@/pages/staff/enquiries/new/page")) },
+  { path: "/crm-sync", module: "crm_sync", Component: ported(() => import("@/pages/staff/crm-sync/page")) },
+  { path: "/finance", module: "finance_cases", Component: ported(() => import("@/pages/staff/finance/page")) },
+  { path: "/finance/:id", module: "finance_cases", Component: ported(() => import("@/pages/staff/finance/[id]/page")) },
 
   // Stock
-  { path: "/stock", Component: ported(() => import("@/pages/staff/stock/page"), [stockLayout]) },
-  { path: "/stock/import", Component: ported(() => import("@/pages/staff/stock/import/page"), [stockLayout]) },
-  { path: "/stock/match", Component: ported(() => import("@/pages/staff/stock/match/page"), [stockLayout]) },
-  { path: "/stock/allotted", Component: ported(() => import("@/pages/staff/stock/allotted/page"), [stockLayout]) },
-  { path: "/stock/billing", Component: ported(() => import("@/pages/staff/stock/billing/page"), [stockLayout]) },
-  { path: "/stock/ctdms", Component: ported(() => import("@/pages/staff/stock/ctdms/page"), [stockLayout]) },
-  { path: "/stock/finance-queue", Component: ported(() => import("@/pages/staff/stock/finance-queue/page"), [stockLayout]) },
-  { path: "/stock/vna", Component: ported(() => import("@/pages/staff/stock/vna/page"), [stockLayout]) },
-  { path: "/stock/vehicle/:id", Component: ported(() => import("@/pages/staff/stock/vehicle/[id]/page"), [stockLayout]) },
-  { path: "/stock/pool", Component: ported(() => import("@/pages/staff/stock/pool/page"), [stockLayout]) },
-  { path: "/stock/pool/config", Component: ported(() => import("@/pages/staff/stock/pool/config/page"), [stockLayout]) },
-  { path: "/stock/pool/audit", Component: ported(() => import("@/pages/staff/stock/pool/audit/page"), [stockLayout]) },
+  { path: "/stock", module: "stock_free", Component: ported(() => import("@/pages/staff/stock/page"), [stockLayout]) },
+  { path: "/stock/import", module: "stock_import", Component: ported(() => import("@/pages/staff/stock/import/page"), [stockLayout]) },
+  { path: "/stock/match", module: "stock_match", Component: ported(() => import("@/pages/staff/stock/match/page"), [stockLayout]) },
+  { path: "/stock/allotted", module: "stock_allotted", Component: ported(() => import("@/pages/staff/stock/allotted/page"), [stockLayout]) },
+  { path: "/stock/billing", module: "stock_billing", Component: ported(() => import("@/pages/staff/stock/billing/page"), [stockLayout]) },
+  { path: "/stock/ctdms", module: "stock_ctdms", Component: ported(() => import("@/pages/staff/stock/ctdms/page"), [stockLayout]) },
+  { path: "/stock/finance-queue", module: "stock_finance_queue", Component: ported(() => import("@/pages/staff/stock/finance-queue/page"), [stockLayout]) },
+  { path: "/stock/vna", module: "stock_vna", Component: ported(() => import("@/pages/staff/stock/vna/page"), [stockLayout]) },
+  { path: "/stock/vehicle/:id", module: "stock_free", Component: ported(() => import("@/pages/staff/stock/vehicle/[id]/page"), [stockLayout]) },
+  { path: "/stock/pool", module: "stock_pool", Component: ported(() => import("@/pages/staff/stock/pool/page"), [stockLayout]) },
+  { path: "/stock/pool/config", module: "stock_pool_config", Component: ported(() => import("@/pages/staff/stock/pool/config/page"), [stockLayout]) },
+  { path: "/stock/pool/audit", module: "stock_pool", Component: ported(() => import("@/pages/staff/stock/pool/audit/page"), [stockLayout]) },
   {
-    path: "/stock/pool/:variant/:color",
+    path: "/stock/pool/:variant/:color", module: "stock_pool",
     Component: ported(() => import("@/pages/staff/stock/pool/[variant]/[color]/page"), [stockLayout]),
   },
-  { path: "/payments", Component: ported(() => import("@/pages/staff/payments/page")) },
-  { path: "/cancellations", Component: ported(() => import("@/pages/staff/cancellations/page")) },
+  { path: "/payments", module: "payments", Component: ported(() => import("@/pages/staff/payments/page")) },
+  { path: "/cancellations", module: "cancellations", Component: ported(() => import("@/pages/staff/cancellations/page")) },
 
   // People
-  { path: "/hr", Component: ported(() => import("@/pages/staff/hr/page")) },
-  { path: "/hr/new", Component: ported(() => import("@/pages/staff/hr/new/page")) },
-  { path: "/hr/:id", Component: ported(() => import("@/pages/staff/hr/[id]/page")) },
+  { path: "/hr", module: "hr", Component: ported(() => import("@/pages/staff/hr/page")) },
+  { path: "/hr/new", module: "hr_new", Component: ported(() => import("@/pages/staff/hr/new/page")) },
+  { path: "/hr/:id", module: "hr", Component: ported(() => import("@/pages/staff/hr/[id]/page")) },
 
   // Reporting
-  { path: "/reports/consultants", Component: ported(() => import("@/pages/staff/reports/consultants/page"), [reportsLayout]) },
-  { path: "/reports/sources", Component: ported(() => import("@/pages/staff/reports/sources/page"), [reportsLayout]) },
-  { path: "/reports/stock-ageing", Component: ported(() => import("@/pages/staff/reports/stock-ageing/page"), [reportsLayout]) },
-  { path: "/reports/quotes", Component: ported(() => import("@/pages/staff/reports/quotes/page"), [reportsLayout]) },
-  { path: "/reports/approvals", Component: ported(() => import("@/pages/staff/reports/approvals/page"), [reportsLayout]) },
-  { path: "/reports/margin", Component: ported(() => import("@/pages/staff/reports/margin/page"), [reportsLayout]) },
-  { path: "/reports/bookings", Component: ported(() => import("@/pages/staff/reports/bookings/page"), [reportsLayout]) },
-  { path: "/reports/bookings/:id", Component: ported(() => import("@/pages/staff/reports/bookings/[id]/page"), bookingFile) },
+  { path: "/reports/consultants", module: "rpt_consultants", Component: ported(() => import("@/pages/staff/reports/consultants/page"), [reportsLayout]) },
+  { path: "/reports/sources", module: "rpt_sources", Component: ported(() => import("@/pages/staff/reports/sources/page"), [reportsLayout]) },
+  { path: "/reports/stock-ageing", module: "rpt_stock_ageing", Component: ported(() => import("@/pages/staff/reports/stock-ageing/page"), [reportsLayout]) },
+  { path: "/reports/quotes", module: "rpt_quotes", Component: ported(() => import("@/pages/staff/reports/quotes/page"), [reportsLayout]) },
+  { path: "/reports/approvals", module: "rpt_approvals", Component: ported(() => import("@/pages/staff/reports/approvals/page"), [reportsLayout]) },
+  { path: "/reports/margin", module: "rpt_margin", Component: ported(() => import("@/pages/staff/reports/margin/page"), [reportsLayout]) },
+  { path: "/reports/bookings", module: "rpt_bookings", Component: ported(() => import("@/pages/staff/reports/bookings/page"), [reportsLayout]) },
+  { path: "/reports/bookings/:id", module: "rpt_bookings", Component: ported(() => import("@/pages/staff/reports/bookings/[id]/page"), bookingFile) },
   {
-    path: "/reports/bookings/:id/payments",
+    path: "/reports/bookings/:id/payments", module: "rpt_bookings",
     Component: ported(() => import("@/pages/staff/reports/bookings/[id]/payments/page"), bookingFile),
   },
   {
-    path: "/reports/bookings/:id/insurance-rto",
+    path: "/reports/bookings/:id/insurance-rto", module: "rpt_bookings",
     Component: ported(() => import("@/pages/staff/reports/bookings/[id]/insurance-rto/page"), bookingFile),
   },
   {
-    path: "/reports/bookings/:id/delivery",
+    path: "/reports/bookings/:id/delivery", module: "rpt_bookings",
     Component: ported(() => import("@/pages/staff/reports/bookings/[id]/delivery/page"), bookingFile),
   },
   {
-    path: "/reports/bookings/:id/hold-cancel",
+    path: "/reports/bookings/:id/hold-cancel", module: "rpt_bookings",
     Component: ported(() => import("@/pages/staff/reports/bookings/[id]/hold-cancel/page"), bookingFile),
   },
 
   // Masters
-  { path: "/admin/price-list/import", Component: ported(() => import("@/pages/staff/admin/price-list/import/page")) },
-  { path: "/admin/:entity", Component: ported(() => import("@/pages/staff/admin/[entity]/page")) },
+  { path: "/admin/price-list/import", module: "masters", Component: ported(() => import("@/pages/staff/admin/price-list/import/page")) },
+  { path: "/admin/:entity", module: "masters", Component: ported(() => import("@/pages/staff/admin/[entity]/page")) },
+
+  // Admin
+  { path: "/admin/access", module: "access_studio", Component: lazy(() => import("@/pages/admin/AccessStudio")) },
+
+  // Phases 18–22 add their screens here.
+  ...phaseRoutes,
 ];
 
 // Hands the router's navigate to code outside components (server actions, redirect()).
@@ -114,13 +124,15 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          {routes.map(({ path, Component }) => (
+          {routes.map(({ path, module, Component }) => (
             <Route
               key={path}
               path={path}
               element={
                 <Suspense fallback={<p className="py-10 text-center text-sm text-slate-400">Loading…</p>}>
-                  <Component />
+                  <RequireModule module={module}>
+                    <Component />
+                  </RequireModule>
                 </Suspense>
               }
             />
