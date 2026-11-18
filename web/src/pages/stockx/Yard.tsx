@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase/client";
 import { must, useQuery } from "@/lib/query";
 import { useRightGate } from "@/lib/rbac";
-import { ActionForm, Card, Chip, EmptyRow, Loaded, PageHeader, Table, Td, fmtDateTime, inputCls, rpc, rpcRows, str } from "@/ui";
+import { ActionForm, Card, Chip, EmptyRow, Loaded, PageHeader, Table, Tabs, Td, fmtDateTime, inputCls, rpc, rpcRows, str } from "@/ui";
+import { BatteryTab, Form22Tab, JobCardsTab, TransitTab, YardOverview } from "./YardExtras";
 import { OutletPicker } from "@/pages/ops/shared";
 
 type Car = {
@@ -34,8 +35,44 @@ const KINDS = [
 ];
 
 // Techwheels' vehicle location: where every yard car is, every move, and battery checks on cars standing long.
+// Techwheels' Manage Yard and Form 22: overview against capacity, transit, every car's location,
+// battery-change cases, job cards and Form 22 / CNG forms.
 export default function YardPage() {
   const [outlet, setOutlet] = useState("");
+  const [tab, setTab] = useState("overview");
+  return (
+    <div>
+      <PageHeader title="Yard & Form 22" note="A delivered car moves to the Delivered yard by itself." actions={<OutletPicker value={outlet} onChange={setOutlet} />} />
+      <Tabs
+        current={tab}
+        onChange={setTab}
+        tabs={[
+          { id: "overview", label: "Overview" },
+          { id: "cars", label: "Cars & moves" },
+          { id: "transit", label: "Transit" },
+          { id: "battery", label: "Battery change" },
+          { id: "jc", label: "Job cards" },
+          { id: "form22", label: "Form 22 / CNG" },
+        ]}
+      />
+      {tab === "overview" ? (
+        <YardOverview outlet={outlet} />
+      ) : tab === "cars" ? (
+        <YardCars outlet={outlet} />
+      ) : tab === "transit" ? (
+        <TransitTab outlet={outlet} />
+      ) : tab === "battery" ? (
+        <BatteryTab outlet={outlet} />
+      ) : tab === "jc" ? (
+        <JobCardsTab />
+      ) : (
+        <Form22Tab outlet={outlet} />
+      )}
+    </div>
+  );
+}
+
+function YardCars({ outlet }: { outlet: string }) {
   const [filter, setFilter] = useState("");
   const q = useQuery(() => rpcRows<Car>("yard_stock", { p_outlet_id: outlet || null }), [outlet]);
   const yards = useQuery(async () => must(await supabase.from("yards").select("id, outlet_id, name").eq("is_active", true).order("name")) as Yard[], []);
@@ -44,16 +81,10 @@ export default function YardPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Yard & Location"
-        note="Physical cars not yet invoiced. Record every move; check the battery of cars standing over 15 days."
-        actions={
-          <>
-            <input placeholder="Search VIN, model, customer" value={filter} onChange={(e) => setFilter(e.target.value)} className={`${inputCls} w-56`} />
-            <OutletPicker value={outlet} onChange={setOutlet} />
-          </>
-        }
-      />
+      <div className="mb-3 flex items-center gap-2 text-sm text-slate-500">
+        <input placeholder="Search VIN, model, customer" value={filter} onChange={(e) => setFilter(e.target.value)} className={`${inputCls} w-56`} />
+        Physical cars not yet invoiced. Record every move; check the battery of cars standing over 15 days.
+      </div>
       <Card>
         <Loaded q={q}>
           {() => (

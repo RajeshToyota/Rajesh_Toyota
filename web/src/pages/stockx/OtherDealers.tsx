@@ -22,6 +22,19 @@ type Match = {
   offer_note: string | null;
   reported_on: string;
 };
+type Wide = {
+  booking_id: string;
+  customer_name: string;
+  variant: string | null;
+  color: string | null;
+  days_waiting: number;
+  match_kind: "exact" | "other_colour" | "other_suffix";
+  dealer_name: string;
+  dealer_city: string | null;
+  offered_variant: string | null;
+  offered_color: string | null;
+  quantity: number;
+};
 type Stock = { id: string; dealer_name: string; city: string | null; suffix_code: string | null; color_code: string | null; variant_id: string | null; color_id: string | null; quantity: number; reported_on: string; variants: { name: string } | null; colors: { name: string } | null };
 
 // Techwheels' other dealers' stock, for Toyota: upload what other dealers offer (suffix and colour code
@@ -33,9 +46,44 @@ export default function OtherDealers() {
     [],
   );
   const canUpload = useRightGate("other_dealers", "create");
+  const wide = useQuery(() => rpcRows<Wide>("vna_other_dealer_matches_wide", { p_outlet_id: null }), []);
   return (
     <div>
       <PageHeader title="Other Dealers' Stock" note="Cars other Toyota dealers can transfer, matched to our customers waiting beyond free stock (VNA)." />
+      <Card title="Close matches" note="Same model: the exact car, the same suffix in another colour, or a nearby suffix — to offer the customer.">
+        <Loaded q={wide}>
+          {(rows) => (
+            <Table head={["Customer", "Wants", "Offered", "Dealer", "Match"]}>
+              {rows.filter((r) => r.match_kind !== "exact").length === 0 ? (
+                <EmptyRow cols={5} text="No close matches." />
+              ) : (
+                rows
+                  .filter((r) => r.match_kind !== "exact")
+                  .map((r, i) => (
+                    <tr key={i}>
+                      <Td>
+                        {r.customer_name}
+                        <div className="text-xs text-slate-500">{r.days_waiting} days waiting</div>
+                      </Td>
+                      <Td muted>
+                        {r.variant} · {r.color}
+                      </Td>
+                      <Td>
+                        {r.offered_variant} · {r.offered_color} ×{r.quantity}
+                      </Td>
+                      <Td muted>
+                        {r.dealer_name} {r.dealer_city}
+                      </Td>
+                      <Td>
+                        <Chip tone={r.match_kind === "other_colour" ? "blue" : "amber"}>{r.match_kind === "other_colour" ? "Other colour" : "Nearby suffix"}</Chip>
+                      </Td>
+                    </tr>
+                  ))
+              )}
+            </Table>
+          )}
+        </Loaded>
+      </Card>
       <Card title={`Waiting customers they could serve (${matches.data?.length ?? 0})`}>
         <Loaded q={matches}>
           {(rows) => (

@@ -11,8 +11,10 @@ export default function Search() {
   const [params, setParams] = useSearchParams();
   const q = params.get("q") ?? "";
   const vehicle = params.get("vehicle");
+  const mode = params.get("mode") ?? "all";
   const [text, setText] = useState(q);
-  const hits = useQuery(() => (q.length >= 3 ? rpcRows<Hit>("search_console", { p_q: q }) : Promise.resolve([] as Hit[])), [q]);
+  const [modeText, setModeText] = useState(mode);
+  const hits = useQuery(() => (q.length >= 3 ? rpcRows<Hit>("search_console_mode", { p_mode: mode, p_q: q }) : Promise.resolve([] as Hit[])), [q, mode]);
 
   return (
     <div>
@@ -21,9 +23,16 @@ export default function Search() {
         className="mb-4 flex gap-2"
         onSubmit={(e) => {
           e.preventDefault();
-          setParams({ q: text.trim() });
+          setParams({ q: text.trim(), mode: modeText });
         }}
       >
+        <select value={modeText} onChange={(e) => setModeText(e.target.value)} className={inputCls}>
+          <option value="all">Everything</option>
+          <option value="vin">VIN / engine no.</option>
+          <option value="mobile">Mobile / name</option>
+          <option value="ctdms">CTDMS order no.</option>
+          <option value="variant">Variant / suffix (stock)</option>
+        </select>
         <input autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="VIN, engine no., mobile, order no. or customer name" className={`${inputCls} w-96`} />
         <button className="rounded-md bg-slate-900 px-3 py-1 text-sm text-white">Search</button>
       </form>

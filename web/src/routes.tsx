@@ -59,4 +59,9 @@ export const phaseRoutes: { path: string; module?: string; Component: ComponentT
   { path: "/cancelled-customers", module: "cancelled_customers", Component: lazy(() => import("@/pages/bookings/CancelledCustomers")) },
   { path: "/refunds", module: "refunds", Component: lazy(() => import("@/pages/bookings/Refunds")) },
   { path: "/hold-customers", module: "hold_customers", Component: lazy(() => import("@/pages/bookings/HoldCustomers")) },
+
+  // Phase 27: stock, yard and Form 22
+  { path: "/stock/dealer-transfers", module: "dealer_transfers", Component: lazy(() => import("@/pages/stockx/DealerTransfers")) },
+  { path: "/stock/monitor", module: "stock_monitor", Component: lazy(() => import("@/pages/stockx/Monitor")) },
+  { path: "/stock/planning", module: "stock_planning", Component: lazy(() => import("@/pages/stockx/Planning")) },
 ];
