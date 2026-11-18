@@ -83,7 +83,7 @@ All six migrations (plus `20261118000007_search_path_hardening`) were applied to
 
 **Before go-live:**
 - ~~Apply the six migrations to live in order.~~ Done 18 Nov.
-- Deploy the `employee-login` edge function.
+- ~~Deploy the `employee-login` edge function.~~ Done 18 Nov (version 1, JWT required).
 - Review the seeded role rights in the Access Studio.
 - Set the real per-car CA amounts in Incentive Schemes (the seeded ₹1,000 / ₹1,500 / ₹2,000 are placeholders).
 - Switch `ops_config.enabled` on per go-live plan.
