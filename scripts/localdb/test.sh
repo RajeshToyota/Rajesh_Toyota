@@ -3,6 +3,9 @@
 #   PGHOST=/tmp PGPORT=54329 PGUSER=postgres scripts/localdb/test.sh
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+# The app's "today" is IST; some tests compare it with current_date, which follows the session time
+# zone. Run in IST so the suite does not fail between 00:00 and 05:30 IST.
+export PGOPTIONS="${PGOPTIONS:--c timezone=Asia/Kolkata}"
 scripts/localdb/apply.sh rt_crm_test
 fail=0
 for t in supabase/tests/*.sql; do

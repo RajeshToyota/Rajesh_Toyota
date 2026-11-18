@@ -53,4 +53,10 @@ export const phaseRoutes: { path: string; module?: string; Component: ComponentT
   // Phase 25: quotes workbench
   { path: "/quotes", module: "quotes", Component: lazy(() => import("@/pages/quotes/Quotes")) },
   { path: "/quotes/:id", module: "quotes", Component: lazy(() => import("@/pages/quotes/QuoteDetail")) },
+
+  // Phase 26: booking documents, cancelled customers, refunds, hold
+  { path: "/booking-docs", module: "booking_docs", Component: lazy(() => import("@/pages/bookings/BookingDocs")) },
+  { path: "/cancelled-customers", module: "cancelled_customers", Component: lazy(() => import("@/pages/bookings/CancelledCustomers")) },
+  { path: "/refunds", module: "refunds", Component: lazy(() => import("@/pages/bookings/Refunds")) },
+  { path: "/hold-customers", module: "hold_customers", Component: lazy(() => import("@/pages/bookings/HoldCustomers")) },
 ];
