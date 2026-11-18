@@ -65,11 +65,11 @@ This plan extends the existing codebase. It does not replace it.
 - **Employees are created from the booking dump for now.** That means 30 SOs and 6 TLs at their branch, with SO → TL reporting. The full employee sheet will enrich them later. The employee file was not attached, so it still needs to be sent.
 - **Only orders with status Booked or Accepted are imported** as open bookings.
 
-## Phases 17–22 — Techwheels parity — status: built and tested locally, NOT yet on live
+## Phases 17–22 — Techwheels parity — status: migrated to live (18 Nov); gate-pass and price-difference rules switched off
 
 Plan and reasoning: `docs/TECHWHEELS_PARITY_PLAN.md`. Each phase's database work is a migration with a
 SQL test; `scripts/localdb/test.sh` rebuilds a scratch database and runs every test (19 files, all pass).
-Nothing below has been applied to the live Supabase project yet.
+All six migrations (plus `20261118000007_search_path_hardening`) were applied to live on 18 Nov; the live version numbers are in the README.
 
 | Phase | What | Migration / test | Web (`web/`) |
 |---|---|---|---|
@@ -82,7 +82,7 @@ Nothing below has been applied to the live Supabase project yet.
 | 22 | Exchange evaluations (photos, valuation, negotiation, U Trust flag), buy-in as exchange receipt, used-car stock and summary | `20261118000006_exchange_used_cars` / `exchange_used_cars.sql` | `/used-cars/evaluations`, `/used-cars/stock`, `/used-cars/summary` |
 
 **Before go-live:**
-- Apply the six migrations to live in order.
+- ~~Apply the six migrations to live in order.~~ Done 18 Nov.
 - Deploy the `employee-login` edge function.
 - Review the seeded role rights in the Access Studio.
 - Set the real per-car CA amounts in Incentive Schemes (the seeded ₹1,000 / ₹1,500 / ₹2,000 are placeholders).

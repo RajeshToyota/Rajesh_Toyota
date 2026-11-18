@@ -1,6 +1,6 @@
 # Rajesh Toyota — bring it to Techwheels parity
 
-> **Status (18 Nov 2026):** Phases 17a–22 are built and tested on a local database. They are not yet on the live project. See the "Phases 17–22" section of `docs/ROADMAP.md` for what shipped and what is left before go-live.
+> **Status (18 Nov 2026):** Phases 17a–22 are built and tested on a local database. Their database migrations are on the live project since 18 Nov; the web app is not deployed yet. See the "Phases 17–22" section of `docs/ROADMAP.md` for what shipped and what is left before go-live.
 
 ## Context
 Goal: Rajesh Toyota should work like Techwheels, with the same logic and modules.

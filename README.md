@@ -97,5 +97,12 @@ engine in `supabase/migrations/` (Phase 1) for the shared `calculate_price` impl
   - `20261102000001` → `20261026081013` employee_management (Phase 14)
   - `20261103000001` → `20261026091801` pipeline_reports (Phase 15)
   - `20261113000001` → `20261112135745` stock_allotment_pool (Phase 16; applied with comments stripped, pool switched off)
+  - `20261118000001` → `20261118070111` permissions_menu (Phase 17b)
+  - `20261118000002` → `20261118070716` ops_billing_pdi_delivery (Phase 18; comments stripped; gate-pass rule off)
+  - `20261118000003` → `20261118071007` rm_leads_reception_test_drive (Phase 19; comments stripped)
+  - `20261118000004` → `20261118071211` targets_incentives (Phase 20; comments stripped)
+  - `20261118000005` → `20261118071354` stock_extras (Phase 21; comments stripped; price-difference rule off)
+  - `20261118000006` → `20261118071925` exchange_used_cars (Phase 22; comments stripped)
+  - `20261118000007` → `20261118072135` search_path_hardening
   - The CTDMS staff (36) and open orders (265) were loaded with `execute_sql` and are not recorded as
     migrations.
