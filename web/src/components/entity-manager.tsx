@@ -278,7 +278,9 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
         const raw = (cells[col] ?? "").trim();
         if (raw === "") {
           if (f.required) problems.push(`Row ${line}: "${f.label}" is required.`);
-          payload[f.key] = f.type === "boolean" ? false : f.type === "text" || f.type === "textarea" ? "" : null;
+          // Blank cells save as null, same as the form. An empty string would collide on
+          // partial unique indexes such as variants.tkm_suffix_code (unique where not null).
+          payload[f.key] = f.type === "boolean" ? false : null;
           continue;
         }
         switch (f.type) {
