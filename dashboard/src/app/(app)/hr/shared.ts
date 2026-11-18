@@ -83,3 +83,28 @@ export const PRIVATE_INPUTS = [
   { key: "current_address", label: "Current address", type: "textarea" as const },
   { key: "permanent_address", label: "Permanent address", type: "textarea" as const },
 ];
+
+const YES_NO = [
+  { id: "yes", name: "Yes" },
+  { id: "no", name: "No" },
+];
+
+export const SALARY_TYPES = [
+  { id: "fixed", name: "Fixed" },
+  { id: "fixed_incentive", name: "Fixed + incentive" },
+];
+
+// Salary, ESI and PF (save_employee_salary in 20261118000008_employee_salary.sql). Same visibility as the
+// private details: HR, Business Head / Admin and the employee.
+export const SALARY_INPUTS = [
+  { key: "salary_type", label: "Salary type", options: SALARY_TYPES, required: true },
+  { key: "monthly_salary", label: "Monthly salary (₹, gross)", required: true },
+  { key: "esi_applicable", label: "ESI applicable", options: YES_NO },
+  { key: "esi_number", label: "ESIC IP number (10 digits)" },
+  { key: "pf_applicable", label: "PF applicable", options: YES_NO },
+  { key: "uan_number", label: "UAN (12 digits)" },
+  { key: "pf_member_id", label: "PF member ID" },
+  { key: "effective_from", label: "Salary effective from", type: "date" as const },
+];
+
+export const SALARY_KEYS = SALARY_INPUTS.map((i) => i.key);

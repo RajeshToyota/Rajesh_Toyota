@@ -65,8 +65,8 @@ begin
   if (select phone || '|' || email from employees where id = v_id) <> '9829011111|new.sc@rajeshtoyota.com' then
     raise exception 'phone and email should be normalised';
   end if;
-  if (select count(*) from employee_tasks where employee_id = v_id and kind = 'onboarding') <> 9 then
-    raise exception 'a sales consultant gets all 9 onboarding items, got %', (select count(*) from employee_tasks where employee_id = v_id);
+  if (select count(*) from employee_tasks where employee_id = v_id and kind = 'onboarding') <> 10 then
+    raise exception 'a sales consultant gets all 10 onboarding items, got %', (select count(*) from employee_tasks where employee_id = v_id);
   end if;
 end $$;
 
@@ -108,7 +108,7 @@ end $$;
 select pg_temp.as_user('3');
 do $$ begin
   if not exists (select 1 from employees where id = (select id from t_new)) then raise exception 'OH should see the new consultant'; end if;
-  if (select count(*) from employee_tasks where employee_id = (select id from t_new)) <> 9 then raise exception 'OH should see the checklist'; end if;
+  if (select count(*) from employee_tasks where employee_id = (select id from t_new)) <> 10 then raise exception 'OH should see the checklist'; end if;
   if exists (select 1 from employee_private) then raise exception 'OH must not see private details'; end if;
 end $$;
 select pg_temp.expect_error($$select save_employee((select id from t_new), '{"name":"X","role_id":"00000000-0000-0000-0001-000000000006"}')$$,

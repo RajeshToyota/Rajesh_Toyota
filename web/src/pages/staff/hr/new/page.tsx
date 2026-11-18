@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentEmployee } from "@/lib/auth";
-import { saveEmployee } from "../actions";
+import { saveNewEmployee } from "../actions";
 import { RecordForm } from "../record-form";
-import { canManageHr, employeeInputs } from "../shared";
+import { SALARY_INPUTS, canManageHr, employeeInputs } from "../shared";
 import { staffOptions } from "../options";
 
 export default async function NewEmployeePage() {
@@ -20,15 +20,15 @@ export default async function NewEmployeePage() {
         </Link>
         <h1 className="mt-1 text-lg font-semibold text-slate-900">Add employee</h1>
         <p className="text-sm text-slate-500">
-          The onboarding checklist starts straight away. Send the CRM login from their page once the work email is in.
+          The onboarding checklist starts straight away. Salary, ESI and PF are visible only to HR, the Business Head and the employee. Send the CRM login from their page once the work email is in.
         </p>
       </div>
       <section className="rounded-md border border-slate-200 bg-white p-4">
         <RecordForm
-          inputs={employeeInputs(roles, outlets, managers)}
+          inputs={[...employeeInputs(roles, outlets, managers), ...SALARY_INPUTS]}
           initial={{}}
           hidden={{}}
-          action={saveEmployee}
+          action={saveNewEmployee}
           submitLabel="Add employee"
           redirectPrefix="/hr/"
         />

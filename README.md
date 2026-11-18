@@ -104,5 +104,6 @@ engine in `supabase/migrations/` (Phase 1) for the shared `calculate_price` impl
   - `20261118000005` → `20261118071354` stock_extras (Phase 21; comments stripped; price-difference rule off)
   - `20261118000006` → `20261118071925` exchange_used_cars (Phase 22; comments stripped)
   - `20261118000007` → `20261118072135` search_path_hardening
+  - `20261118000008` → `20261118075219` employee_salary (salary type, monthly salary, ESI, PF)
   - The CTDMS staff (36) and open orders (265) were loaded with `execute_sql` and are not recorded as
     migrations.

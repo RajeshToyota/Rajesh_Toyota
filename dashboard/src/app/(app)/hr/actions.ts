@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { SALARY_KEYS } from "./shared";
 
 // Everything is checked in the database (20261102000001_employee_management.sql): only HR and the
 // Business Head / Admin manage staff, and HR can never touch the top roles. The service key is used
@@ -44,6 +45,23 @@ export async function saveEmployeePrivate(fd: FormData) {
   const id = str(fd, "employee_id");
   const p = Object.fromEntries(PRIVATE_KEYS.map((k) => [k, str(fd, k) ?? ""]));
   await call("save_employee_private", { p_employee_id: id, p }, id);
+}
+
+// Salary type, monthly salary, ESI and PF.
+export async function saveEmployeeSalary(fd: FormData) {
+  const id = str(fd, "employee_id");
+  const p = Object.fromEntries(SALARY_KEYS.map((k) => [k, str(fd, k) ?? ""]));
+  await call("save_employee_salary", { p_employee_id: id, p }, id);
+}
+
+// Add employee: the record first, then the salary when it was filled in.
+export async function saveNewEmployee(fd: FormData): Promise<string> {
+  const id = await saveEmployee(fd);
+  if (str(fd, "salary_type") || str(fd, "monthly_salary")) {
+    fd.set("employee_id", id);
+    await saveEmployeeSalary(fd);
+  }
+  return id;
 }
 
 export async function setEmployeeTask(fd: FormData) {

@@ -9,6 +9,7 @@ import {
   returnAsset,
   saveEmployee,
   saveEmployeePrivate,
+  saveEmployeeSalary,
   sendLoginLink,
   setEmployeeTask,
   startChecklist,
@@ -21,6 +22,8 @@ import {
   DEPARTMENTS,
   DOCUMENT_KINDS,
   PRIVATE_INPUTS,
+  SALARY_INPUTS,
+  SALARY_TYPES,
   canManageHr,
   employeeInputs,
   fmtDate,
@@ -115,7 +118,7 @@ export default async function EmployeePage({ params }: { params: Promise<{ id: s
   const canEdit = manage && e.is_active && (!topRole || (viewer?.roleRank ?? 99) <= 1);
   const seePrivate = manage || isSelf;
 
-  const [{ data: tasks }, { data: assets }, { data: priv }, { data: docs }, options, handover] = await Promise.all([
+  const [{ data: tasks }, { data: assets }, { data: priv }, { data: docs }, options, handover, { data: salary }] = await Promise.all([
     supabase.from("employee_tasks").select("id, kind, title, status, note, done_at, auto_key").eq("employee_id", id).order("sort_order"),
     supabase
       .from("employee_assets")
@@ -130,6 +133,7 @@ export default async function EmployeePage({ params }: { params: Promise<{ id: s
     manage && e.is_active && !isSelf
       ? supabase.rpc("employee_handover", { p_employee_id: id }).then((r) => (r.data as Handover[] | null)?.[0] ?? null)
       : Promise.resolve(null),
+    seePrivate ? supabase.from("employee_salary").select("*").eq("employee_id", id).maybeSingle() : Promise.resolve({ data: null }),
   ]);
 
   const links = new Map<string, string>();
@@ -148,6 +152,21 @@ export default async function EmployeePage({ params }: { params: Promise<{ id: s
     employeeInputs([], [], []).map((i) => [i.key, str(i.key)]),
   );
   const privateInitial = Object.fromEntries(PRIVATE_INPUTS.map((i) => [i.key, (priv as Record<string, string | null> | null)?.[i.key] ?? ""]));
+  const sal = salary as Record<string, string | number | boolean | null> | null;
+  const salaryInitial: Record<string, string> = Object.fromEntries(
+    SALARY_INPUTS.map((i) => {
+      const v = sal?.[i.key];
+      return [i.key, typeof v === "boolean" ? (v ? "yes" : "no") : v == null ? "" : String(v)];
+    }),
+  );
+  const salaryShown = (key: string) =>
+    key === "salary_type"
+      ? (SALARY_TYPES.find((t) => t.id === salaryInitial[key])?.name ?? "—")
+      : key === "monthly_salary" && salaryInitial[key]
+        ? `₹${Number(salaryInitial[key]).toLocaleString("en-IN")}`
+        : key.endsWith("_applicable")
+          ? salaryInitial[key] === "yes" ? "Yes" : salaryInitial[key] === "no" ? "No" : "—"
+          : salaryInitial[key] || "—";
   const handoverTo = (options?.managers ?? []).filter((m) => m.id !== id);
   const openWork = handover ? handover.open_enquiries + handover.open_quotes + handover.open_bookings : 0;
 
@@ -247,6 +266,34 @@ export default async function EmployeePage({ params }: { params: Promise<{ id: s
                     </div>
                   ))}
                 </dl>
+              )}
+            </Section>
+          )}
+
+          {seePrivate && (
+            <Section title="Salary, ESI & PF" aside={<span className="text-xs text-slate-500">HR, Business Head and the employee only</span>}>
+              {manage && e.is_active ? (
+                <RecordForm
+                  inputs={SALARY_INPUTS}
+                  initial={salaryInitial}
+                  hidden={{ employee_id: id }}
+                  action={saveEmployeeSalary}
+                  submitLabel="Save salary details"
+                />
+              ) : (
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                  {SALARY_INPUTS.map((i) => (
+                    <div key={i.key} className="contents">
+                      <dt className="text-slate-500">{i.label}</dt>
+                      <dd>{salaryShown(i.key)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+              {manage && (
+                <p className="mt-2 text-xs text-slate-500">
+                  “Fixed” staff are left out of the monthly incentive run. ESI usually applies up to ₹21,000 a month gross.
+                </p>
               )}
             </Section>
           )}
