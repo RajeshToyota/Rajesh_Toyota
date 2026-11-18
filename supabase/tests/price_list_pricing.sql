@@ -13,10 +13,13 @@ begin
   r := calculate_price(jsonb_build_object('variant_id', v, 'color_id', c, 'state', 'Rajasthan', 'insurance_option', 'premium'));
   if (r->>'total_amount')::numeric <> 2311480 then raise exception 'D22U4 standard premium: expected 2311480, got %', r->>'total_amount'; end if;
 
-  -- Same variant in a dual-tone paint picks up the dual-tone row: 20,19,000 + 20,190 + 2,33,838 + 60,840 + 500 = 23,34,368.
+  -- Same variant in a dual-tone paint: one price-list row per variant, and the dual-tone difference
+  -- (20,000, folded from the old dual-tone row) is the colour's extra cost on Variant <-> Color.
+  -- 19,99,000 + 20,000 + TCS 20,190 + RTO 2,31,588 (printed; no MV tax rate yet) + 60,402 + 500 = 23,31,680.
   select id into c from colors where tkm_color_code = 'C9J';
   r := calculate_price(jsonb_build_object('variant_id', v, 'color_id', c, 'state', 'Rajasthan', 'insurance_option', 'premium'));
-  if (r->>'total_amount')::numeric <> 2334368 then raise exception 'D22U4 dual tone premium: expected 2334368, got %', r->>'total_amount'; end if;
+  if (r->>'color_extra_cost')::numeric <> 20000 then raise exception 'D22U4 dual tone: expected colour extra 20000, got %', r->>'color_extra_cost'; end if;
+  if (r->>'total_amount')::numeric <> 2331680 then raise exception 'D22U4 dual tone premium: expected 2331680, got %', r->>'total_amount'; end if;
 
   -- Glanza E MT (D24ZW): list prints TCS 0 below the threshold. Advance: 6,99,000 + 0 + 77,474 + 36,019 + 500 = 8,12,993.
   select id into v from variants where tkm_suffix_code = 'D24ZW';
@@ -35,11 +38,11 @@ begin
     if sqlerrm like 'FRN4L commercial%' then raise; end if;
   end;
 
-  -- Pearl white Fortuner 4x2 MT (FRNBJ) uses the PW row, plus the 5th-year warranty:
-  -- 35,95,000 + 35,950 + 4,97,025 + 1,57,498 + 500 + EW 51,680 = 43,37,653.
+  -- Pearl white (089) Fortuner 4x2 MT (FRNBJ): the standard row plus the 20,000 pearl extra cost,
+  -- plus the 5th-year warranty: 35,75,000 + 20,000 + 35,950 + 4,94,325 + 1,56,817 + 500 + EW 51,680 = 43,34,272.
   select id into v from variants where tkm_suffix_code = 'FRNBJ';
   r := calculate_price(jsonb_build_object('variant_id', v, 'color_id', c, 'state', 'Rajasthan', 'insurance_option', 'premium', 'include_extended_warranty', true));
-  if (r->>'total_amount')::numeric <> 4337653 then raise exception 'FRNBJ pearl premium + EW: expected 4337653, got %', r->>'total_amount'; end if;
+  if (r->>'total_amount')::numeric <> 4334272 then raise exception 'FRNBJ pearl premium + EW: expected 4334272, got %', r->>'total_amount'; end if;
 
   -- Innova Crysta GX 8S (IMVIV) commercial list: 19,99,000 + 19,990 + 2,35,143 + 76,319 + 500 = 23,30,952.
   select id into v from variants where tkm_suffix_code = 'IMVIV';

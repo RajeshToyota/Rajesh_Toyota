@@ -20,6 +20,8 @@ export interface FieldConfig {
   foreignTable?: string;
   foreignLabelKey?: string;
   hideInTable?: boolean;
+  /** Worked out by the database: shown and exported, never edited or imported. */
+  readOnly?: boolean;
   step?: string;
 }
 
@@ -29,6 +31,8 @@ export interface EntityConfig {
   title: string;
   description?: string;
   orderBy?: string;
+  /** Dated rows: show only the ones in effect today, with a toggle for the rest. */
+  currentOnly?: { fromKey: string; toKey: string };
   fields: FieldConfig[];
 }
 
@@ -75,6 +79,7 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
           { key: "tkm_suffix_code", label: "TKM Suffix Code (e.g. D22U4)", type: "text" },
           { key: "old_suffix_code", label: "Old Suffix Code", type: "text", hideInTable: true },
           { key: "name", label: "Name", type: "text", required: true },
+          { key: "engine_cc", label: "Engine (cc)", type: "number", step: "1" },
           { key: "is_active", label: "Active", type: "boolean" },
         ],
       },
@@ -105,11 +110,14 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
         slug: "variant-colors",
         table: "variant_colors",
         title: "Variant ↔ Color availability",
-        description: "Which colors are offered for which variant, and any extra dealer upcharge.",
+        description:
+          "Which colors are offered for which variant. Every colour is sold at the variant's price-list price; " +
+          "enter a price difference only for a colour that costs more (e.g. Pearl White +20,000) or less. " +
+          "RTO and TCS are worked out on the price including this difference.",
         fields: [
           { key: "variant_id", label: "Variant", type: "foreign_key", foreignTable: "variants", foreignLabelKey: "name", required: true },
           { key: "color_id", label: "Color", type: "foreign_key", foreignTable: "colors", required: true },
-          { key: "extra_cost", label: "Extra Cost", type: "number", step: "0.01" },
+          { key: "extra_cost", label: "Price Difference (vs variant price)", type: "number", step: "0.01" },
         ],
       },
       {
@@ -117,10 +125,12 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
         table: "price_list",
         title: "Price List",
         description:
-          "Dealer price list by variant, list (private / commercial / CSD), paint and state, with effective dating. " +
-          "A row with a colour applies to that colour only; otherwise it applies to every colour of its paint category. " +
-          "Insurance options are loaded from the TKM lists by scripts/seed/build_master_seed.py.",
+          "One row per variant, list (private / commercial / CSD) and state, with effective dating. The price applies to " +
+          "every colour; colour price differences are set in Variant ↔ Color. RTO is Normal registration, worked out as " +
+          "in Techwheels: fixed charges (RTO Settings) + MV tax at this row's rate + 12.5% surcharge + green tax (by engine cc). " +
+          "Until the MV tax rate and RTO Settings are filled in, the printed Road Tax & Registration is used.",
         orderBy: "effective_from",
+        currentOnly: { fromKey: "effective_from", toKey: "effective_to" },
         fields: [
           { key: "variant_id", label: "Variant", type: "foreign_key", foreignTable: "variants", foreignLabelKey: "name", required: true },
           {
@@ -134,22 +144,12 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
               { value: "csd", label: "CSD" },
             ],
           },
-          {
-            key: "paint_category",
-            label: "Paint",
-            type: "select",
-            required: true,
-            options: [
-              { value: "standard", label: "Standard" },
-              { value: "pearl_white", label: "Pearl White" },
-              { value: "dual_tone", label: "Dual Tone" },
-            ],
-          },
-          { key: "color_id", label: "Specific Color (optional)", type: "foreign_key", foreignTable: "colors", hideInTable: true },
           { key: "state", label: "State", type: "text", required: true },
           { key: "ex_showroom_price", label: "Ex-Showroom Price", type: "number", step: "0.01", required: true },
           { key: "tcs_amount", label: "TCS (as printed)", type: "number", step: "0.01", hideInTable: true },
-          { key: "road_tax_registration", label: "Road Tax & Registration", type: "number", step: "0.01" },
+          { key: "mv_tax_rate", label: "MV Tax Rate (%)", type: "number", step: "0.01" },
+          { key: "rto_amount", label: "RTO (Normal)", type: "number", readOnly: true },
+          { key: "road_tax_registration", label: "Road Tax & Registration (as printed)", type: "number", step: "0.01", hideInTable: true },
           { key: "fastag_amount", label: "FASTag", type: "number", step: "0.01", hideInTable: true },
           { key: "ew_5th_year_amount", label: "True Warranty 5th Year", type: "number", step: "0.01", hideInTable: true },
           { key: "tgloss_package_amount", label: "TGLOSS Package", type: "number", step: "0.01", hideInTable: true },
@@ -214,6 +214,32 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
         title: "RTO Categories",
         orderBy: "name",
         fields: [{ key: "name", label: "Name", type: "text", required: true }],
+      },
+      {
+        slug: "rto-settings",
+        table: "rto_settings",
+        title: "RTO Settings",
+        description:
+          "Fixed charges added to every Normal registration (as Techwheels rto_settings). One row only. " +
+          "RTO = these charges + MV tax (ex-showroom × the price-list row's MV tax rate) + surcharge on MV tax + green tax.",
+        fields: [
+          { key: "new_registration", label: "New Registration", type: "number", step: "0.01", required: true },
+          { key: "hypothecation_addition", label: "Hypothecation Addition", type: "number", step: "0.01", required: true },
+          { key: "duplicate_tax_card", label: "Duplicate Tax Card", type: "number", step: "0.01", required: true },
+          { key: "surcharge_percent", label: "Surcharge on MV Tax (%)", type: "number", step: "0.01", required: true },
+        ],
+      },
+      {
+        slug: "green-tax-slabs",
+        table: "green_tax_slabs",
+        title: "Green Tax Slabs",
+        description: "Green tax by engine size (Variants → Engine cc). Not charged on EVs.",
+        orderBy: "min_cc",
+        fields: [
+          { key: "min_cc", label: "From (cc)", type: "number", step: "1", required: true },
+          { key: "max_cc", label: "To (cc)", type: "number", step: "1", required: true },
+          { key: "amount", label: "Green Tax", type: "number", step: "0.01", required: true },
+        ],
       },
       {
         slug: "rto-pricing",

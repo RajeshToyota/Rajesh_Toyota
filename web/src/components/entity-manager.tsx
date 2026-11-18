@@ -25,7 +25,7 @@ function parseBool(raw: string): boolean | null {
 
 function emptyForm(fields: FieldConfig[]): Row {
   const form: Row = {};
-  for (const f of fields) {
+  for (const f of fields.filter((x) => !x.readOnly)) {
     form[f.key] = f.type === "boolean" ? false : "";
   }
   return form;
@@ -44,7 +44,10 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
   const [sort, setSort] = useState<SortState>(null);
   const [importing, setImporting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  // Fields people edit; read-only ones are worked out by the database.
+  const formFields = useMemo(() => config.fields.filter((f) => !f.readOnly), [config.fields]);
 
   const fkFields = useMemo(
     () => config.fields.filter((f) => f.type === "foreign_key"),
@@ -87,6 +90,7 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
     // eslint-disable-next-line react-hooks/set-state-in-effect -- standard fetch-on-mount/change
     setSort(null);
     setNotice(null);
+    setShowAll(false);
     void loadRows();
     void loadOptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -101,7 +105,7 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
   function openEdit(row: Row) {
     setEditingId(row.id as string);
     const next: Row = {};
-    for (const f of config.fields) {
+    for (const f of formFields) {
       next[f.key] = row[f.key] ?? (f.type === "boolean" ? false : "");
     }
     setForm(next);
@@ -124,7 +128,7 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
     setError(null);
 
     const payload: Row = {};
-    for (const f of config.fields) {
+    for (const f of formFields) {
       const v = form[f.key];
       if (f.type === "number") {
         payload[f.key] = v === "" || v === null ? null : Number(v);
@@ -173,10 +177,22 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
     );
   }
 
+  // Dated tables (price list) show only today's rows unless "show all" is ticked.
+  const today = new Date().toISOString().slice(0, 10);
+  const visibleRows = useMemo(() => {
+    const c = config.currentOnly;
+    if (!c || showAll) return rows;
+    return rows.filter((r) => {
+      const from = r[c.fromKey] as string | null;
+      const to = r[c.toKey] as string | null;
+      return (!from || from <= today) && (!to || to >= today);
+    });
+  }, [rows, showAll, config.currentOnly, today]);
+
   const sortedRows = useMemo(() => {
-    if (!sort) return rows;
+    if (!sort) return visibleRows;
     const field = config.fields.find((f) => f.key === sort.key);
-    if (!field) return rows;
+    if (!field) return visibleRows;
     const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
     const sortValue = (row: Row): string | number | null => {
       const v = row[field.key];
@@ -188,7 +204,7 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
       return Array.isArray(v) ? v.join(", ") : String(v);
     };
     const factor = sort.dir === "asc" ? 1 : -1;
-    return [...rows].sort((a, b) => {
+    return [...visibleRows].sort((a, b) => {
       const av = sortValue(a);
       const bv = sortValue(b);
       // Blanks always sink to the bottom, whichever direction.
@@ -202,7 +218,7 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
       return cmp * factor;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, sort, options, config.fields]);
+  }, [visibleRows, sort, options, config.fields]);
 
   // ---- Export: every field (hidden ones too) plus the row id, so the same file can be edited in
   // Excel and imported back as updates. Foreign keys are written as their readable label.
@@ -247,7 +263,7 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
     const header = grid[0].map(norm);
     const idCol = header.indexOf("id");
     const colFor = new Map<string, number>();
-    for (const f of config.fields) {
+    for (const f of formFields) {
       const i = header.findIndex((h) => h === norm(f.label) || h === norm(f.key));
       if (i >= 0) colFor.set(f.key, i);
     }
@@ -269,7 +285,7 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
         return;
       }
       const payload: Row = {};
-      for (const f of config.fields) {
+      for (const f of formFields) {
         const col = colFor.get(f.key);
         if (col === undefined) {
           if (!id && f.required) problems.push(`Row ${line}: column "${f.label}" is required.`);
@@ -408,6 +424,12 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
       {notice && (
         <p className="mb-3 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">{notice}</p>
       )}
+      {config.currentOnly && !loading && rows.length > 0 && (
+        <label className="mb-3 inline-flex items-center gap-2 text-sm text-slate-600">
+          <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
+          Show expired and future rows ({rows.length - visibleRows.length} hidden)
+        </label>
+      )}
 
       {loading ? (
         <p className="text-sm text-slate-500">Loading…</p>
@@ -479,7 +501,7 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
             </h2>
 
             <form onSubmit={handleSubmit} className="mt-4 space-y-3">
-              {config.fields.map((f) => (
+              {formFields.map((f) => (
                 <div key={f.key}>
                   <label className="block text-sm font-medium text-slate-700">
                     {f.label}
