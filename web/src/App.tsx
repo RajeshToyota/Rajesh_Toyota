@@ -64,7 +64,6 @@ const routes: RouteDef[] = [
   // People
   { path: "/hr", module: "hr", Component: ported(() => import("@/pages/staff/hr/page")) },
   { path: "/hr/new", module: "hr_new", Component: ported(() => import("@/pages/staff/hr/new/page")) },
-  { path: "/hr/import", module: "hr", Component: ported(() => import("@/pages/staff/hr/import/page")) },
   { path: "/hr/:id", module: "hr", Component: ported(() => import("@/pages/staff/hr/[id]/page")) },
 
   // Reporting

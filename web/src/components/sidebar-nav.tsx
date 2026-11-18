@@ -41,7 +41,6 @@ const fallbackGroups: NavGroup[] = [
     links: [
       { href: "/hr", label: "Employees" },
       { href: "/hr/new", label: "Add Employee" },
-      { href: "/hr/import", label: "Bulk Import Private Details" },
     ],
   },
   {
