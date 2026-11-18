@@ -57,8 +57,9 @@ declare
 begin
   v_id := open_finance_case('00000000-0000-0000-00bb-0000000000f1', (select id from financiers where short_name = 'SBI'), 'salaried');
   insert into t_ids values ('c1', v_id);
-  if open_finance_case('00000000-0000-0000-00bb-0000000000f1', (select id from financiers where short_name = 'HDFC'), 'salaried') <> v_id then
-    raise exception 'a booking has one live case';
+  -- One live case per financier (Phase 29: several financiers per booking; see finance_claims.sql).
+  if open_finance_case('00000000-0000-0000-00bb-0000000000f1', (select id from financiers where short_name = 'SBI'), 'salaried') <> v_id then
+    raise exception 'opening again with the same financier returns the open case';
   end if;
   if (select count(*) from finance_case_events where case_id = v_id) <> 1 then
     raise exception 'opening should be logged';
@@ -129,9 +130,9 @@ begin
 
   begin
     perform move_finance_case(v_id, 'sanctioned');
-    raise exception 'skipping login: expected an error';
+    raise exception 'sanction without terms (stages may be skipped, gates may not): expected an error';
   exception when raise_exception then
-    if sqlerrm not like 'A case moves one stage at a time%' then raise; end if;
+    if sqlerrm not like 'Enter the sanctioned loan amount%' then raise; end if;
   end;
   perform move_finance_case(v_id, 'logged_in', 'Logged in with SBI Civil Lines');
   begin
@@ -164,12 +165,8 @@ begin
      or (select count(*) from finance_case_events where case_id = v_id) <> 5 then
     raise exception 'case history wrong: % %', c.status, (select count(*) from finance_case_events where case_id = v_id);
   end if;
-  begin
-    perform update_finance_case(v_id, '{"loan_amount": 1}');
-    raise exception 'editing a closed case: expected an error';
-  exception when raise_exception then
-    if sqlerrm not like 'This case is closed%' then raise; end if;
-  end;
+  -- A disbursed case can still be completed (it locks when verified, Phase 29).
+  perform update_finance_case(v_id, '{"loan_account_no": "LAN-1"}');
 end $$;
 
 -- ---- A rejected case closes; a new case can then be opened with another financier

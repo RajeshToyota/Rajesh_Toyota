@@ -3,12 +3,14 @@ import type { CurrentEmployee } from "@/lib/auth";
 export const FINANCE_STAGES = [
   { id: "docs_pending", label: "Documents pending" },
   { id: "logged_in", label: "Logged in" },
+  { id: "credit_review", label: "In credit review" },
   { id: "sanctioned", label: "Sanctioned" },
   { id: "do_received", label: "DO received" },
   { id: "disbursed", label: "Disbursed" },
 ] as const;
 
-export const stageLabel = (s: string) => (s === "rejected" ? "Rejected" : (FINANCE_STAGES.find((x) => x.id === s)?.label ?? s));
+export const stageLabel = (s: string) =>
+  s === "rejected" ? "Rejected" : s === "on_hold" ? "On hold" : (FINANCE_STAGES.find((x) => x.id === s)?.label ?? s);
 
 export const APPLICANT_LABELS: Record<string, string> = {
   salaried: "Salaried",

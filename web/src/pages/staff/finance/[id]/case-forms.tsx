@@ -58,6 +58,9 @@ const GROUPS: { title: string; fields: { key: string; label: string; type?: "num
     fields: [
       { key: "disbursed_amount", label: "Disbursed amount ₹", type: "number" },
       { key: "disbursed_date", label: "Disbursed date", type: "date" },
+      { key: "net_disbursement_amount", label: "Net disbursement ₹ (after the bank's deductions)", type: "number" },
+      { key: "disbursement_month", label: "Disbursement month (any date in it)", type: "date" },
+      { key: "loan_account_no", label: "Loan account no." },
     ],
   },
 ];
@@ -162,6 +165,26 @@ export function StageActions({ caseId, next, nextLabel }: { caseId: string; next
             Move to {nextLabel}
           </button>
         )}
+        <select
+          defaultValue=""
+          disabled={pending}
+          onChange={(e) => {
+            const to = e.target.value;
+            e.target.value = "";
+            if (to) run(moveFinanceCase, { case_id: caseId, status: to, note });
+          }}
+          className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+          title="Banks reverse decisions: a case can move to any status. Going back or on hold needs a note."
+        >
+          <option value="">Move to…</option>
+          <option value="docs_pending">Documents pending</option>
+          <option value="logged_in">Logged in</option>
+          <option value="credit_review">In credit review</option>
+          <option value="sanctioned">Sanctioned</option>
+          <option value="do_received">DO received</option>
+          <option value="disbursed">Disbursed</option>
+          <option value="on_hold">On hold</option>
+        </select>
         <button
           disabled={pending || !note.trim()}
           onClick={() => {

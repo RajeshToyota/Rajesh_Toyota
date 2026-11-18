@@ -63,7 +63,8 @@ export default async function FinanceCasePage({ params }: { params: Promise<{ id
   }
 
   const canWork = canWorkFinance(employee, fc.outlet_id);
-  const closed = fc.status === "disbursed" || fc.status === "rejected";
+  // A verified case is locked (Phase 29); a rejected one stays closed here.
+  const closed = fc.status === "rejected" || fc.verified === true;
   const idx = FINANCE_STAGES.findIndex((s) => s.id === fc.status);
   const next = !closed && idx >= 0 && idx < FINANCE_STAGES.length - 1 ? FINANCE_STAGES[idx + 1] : null;
   const checklist = ((types ?? []) as DocType[]).filter((t) => t.applicant_types.includes(fc.applicant_type));
@@ -125,7 +126,8 @@ export default async function FinanceCasePage({ params }: { params: Promise<{ id
             initial={Object.fromEntries(
               [
                 "financier_id", "application_no", "login_date", "loan_amount", "tenure_months", "roi_percent", "advance_emis",
-                "processing_fee", "sanction_date", "do_number", "do_amount", "do_date", "disbursed_amount", "disbursed_date", "notes",
+                "processing_fee", "sanction_date", "do_number", "do_amount", "do_date", "disbursed_amount", "disbursed_date",
+                "net_disbursement_amount", "disbursement_month", "loan_account_no", "notes",
               ].map((k) => [k, str(k)]),
             )}
           />
