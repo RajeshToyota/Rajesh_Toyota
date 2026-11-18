@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@/lib/query";
 import { useRightGate } from "@/lib/rbac";
-import { ActionForm, Card, Chip, EmptyRow, Loaded, PageHeader, Table, Td, fmtDateTime, inputCls, rpc, rpcRows, str } from "@/ui";
+import { ActionForm, Card, Chip, EmptyRow, Loaded, PageHeader, RunButton, Table, Td, fmtDate, fmtDateTime, inr, inputCls, rpc, rpcRows, str } from "@/ui";
 import { carLine } from "./shared";
 
 type Pass = {
@@ -57,9 +57,9 @@ export default function GatePass() {
       <Card title="Gate passes">
         <Loaded q={q}>
           {(rows) => (
-            <Table head={["Gate pass", "Customer", "Car", "Issued", "Status"]}>
+            <Table head={["Gate pass", "Customer", "Car", "Issued", "Status", ""]}>
               {rows.length === 0 ? (
-                <EmptyRow cols={5} text="No gate passes in this period." />
+                <EmptyRow cols={6} text="No gate passes in this period." />
               ) : (
                 rows.map((g) => (
                   <tr key={g.id} className={g.voided_at ? "opacity-50" : ""}>
@@ -91,6 +91,25 @@ export default function GatePass() {
                         <Chip tone="amber">Waiting for handover</Chip>
                       )}
                     </Td>
+                    <Td>
+                      {!g.voided_at && (
+                        <div className="flex flex-col gap-1">
+                          <RunButton tone="light" label="Gate pass" run={() => printPass(g, "gate")} />
+                          <RunButton tone="light" label="No dues" run={() => printPass(g, "nodues")} />
+                          {canExit && g.delivered && !g.exited_at && (
+                            <ActionForm
+                              tone="danger"
+                              label="Revert delivery"
+                              hidden={{}}
+                              fields={[{ name: "why", placeholder: "Reason", required: true, width: "w-32" }]}
+                              action={async (fd) => {
+                                await rpc("revert_delivered", { p_booking_id: g.booking_id, p_reason: str(fd, "why") });
+                              }}
+                            />
+                          )}
+                        </div>
+                      )}
+                    </Td>
                   </tr>
                 ))
               )}
@@ -100,4 +119,27 @@ export default function GatePass() {
       </Card>
     </div>
   );
+}
+
+// The printed gate pass, or the No-Dues certificate with what was paid (Techwheels' gate-pass and
+// no-dues PDFs), opened in a new window for the browser's print.
+async function printPass(g: Pass, kind: "gate" | "nodues") {
+  const [due] = await rpcRows<{ deal_amount: number; do_amount: number; other_cleared: number; due: number }>("booking_due", { p_booking_id: g.booking_id });
+  if (kind === "nodues" && due && due.due > 0) {
+    throw new Error(`₹${Math.round(due.due).toLocaleString("en-IN")} is still due; no No-Dues certificate yet`);
+  }
+  const w = window.open("", "_blank");
+  if (!w) return;
+  const car = carLine(g);
+  const body =
+    kind === "gate"
+      ? `<h2>Gate Pass ${g.gate_pass_no}</h2><p>Customer: <b>${g.customer_name}</b></p><p>Car: ${car}<br>VIN: ${g.vin}</p>
+         <p>Issued ${fmtDateTime(g.issued_at)} by ${g.issued_by ?? ""}</p><p style="margin-top:60px">Security ________ &nbsp;&nbsp; Customer ________</p>`
+      : `<h2>No-Dues Certificate</h2><p>This is to certify that <b>${g.customer_name}</b> has paid in full for ${car} (VIN ${g.vin}).</p>
+         <table border="1" cellpadding="6" style="border-collapse:collapse"><tr><td>Deal amount</td><td>${inr(due?.deal_amount)}</td></tr>
+         <tr><td>Loan (DO)</td><td>${inr(due?.do_amount)}</td></tr><tr><td>Paid by the customer</td><td>${inr(due?.other_cleared)}</td></tr>
+         <tr><td>Due</td><td>${inr(due?.due)}</td></tr></table><p>Date: ${fmtDate(new Date().toISOString())}</p><p style="margin-top:60px">Accounts ________</p>`;
+  w.document.write(`<!doctype html><html><head><title>${kind === "gate" ? g.gate_pass_no : "No dues"}</title>
+    <style>body{font-family:Arial,sans-serif;margin:40px;font-size:14px}</style></head><body><p>Rajesh Toyota · ${g.outlet}</p>${body}<script>window.print()</script></body></html>`);
+  w.document.close();
 }

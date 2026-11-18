@@ -9,6 +9,8 @@ import { setNavigate } from "@/compat/navigate";
 import RequireModule from "@/components/RequireModule";
 import { phaseRoutes } from "@/routes";
 
+const VerifyReceipt = lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.VerifyReceipt })));
+
 type Module = { default: ServerComponent };
 type Loader = () => Promise<Module>;
 
@@ -118,6 +120,15 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/auth/set-password" element={<SetPasswordPage />} />
+        {/* Public: customers check a printed receipt by its number (Phase 30). */}
+        <Route
+          path="/verify/receipt"
+          element={
+            <Suspense fallback={null}>
+              <VerifyReceipt />
+            </Suspense>
+          }
+        />
         <Route
           element={
             <ProtectedRoute>

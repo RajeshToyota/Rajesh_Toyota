@@ -72,4 +72,14 @@ export const phaseRoutes: { path: string; module?: string; Component: ComponentT
   { path: "/finance/banks", module: "finance_banks", Component: lazy(() => import("@/pages/finance/Banks")) },
   { path: "/finance/desk", module: "finance_desk", Component: lazy(() => import("@/pages/finance/Desk")) },
   { path: "/finance/claims-payouts", module: "finance_claims", Component: lazy(() => import("@/pages/finance/ClaimsPayouts")) },
+
+  // Phase 30: one screen per Ops Billing stage (the board at /ops-billing is the stage status)
+  { path: "/ops-billing/accounts", module: "ops_accounts", Component: lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.AccountsStage }))) },
+  { path: "/ops-billing/crm-billing", module: "ops_crm_billing", Component: lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.CrmBillingStage }))) },
+  { path: "/ops-billing/insurance", module: "ops_insurance", Component: lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.InsuranceStage }))) },
+  { path: "/ops-billing/rto", module: "ops_rto", Component: lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.RtoStage }))) },
+  { path: "/ops-billing/accessories", module: "ops_accessories", Component: lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.AccessoriesStage }))) },
+  { path: "/ops-billing/schemes", module: "ops_scheme", Component: lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.SchemesStage }))) },
+  { path: "/ops-billing/scrap", module: "ops_scrap", Component: lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.ScrapStage }))) },
+  { path: "/ops-billing/receipts", module: "ops_receipts", Component: lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.ReceiptsStage }))) },
 ];
