@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { PdiFlow } from "./Flow";
+import { Tabs } from "@/ui";
+import { useState as useTabState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { must, useQuery } from "@/lib/query";
 import { useRightGate } from "@/lib/rbac";
@@ -40,7 +43,7 @@ type BoardRow = {
 type Item = { code: string; section: string; label: string; sort_order: number };
 
 // Techwheels' PDI board: the day's inspections and the allotted yard cars still waiting for one.
-export default function PdiBoard() {
+function PdiDayBoard() {
   const [date, setDate] = useState(todayIst());
   const [outlet, setOutlet] = useState("");
   const [open, setOpen] = useState<string | null>(null);
@@ -243,6 +246,18 @@ function Checklist({ items, onSubmit }: { items: Item[]; onSubmit: (results: Rec
           {saving ? "…" : fails ? `Fail PDI (${fails})` : "Pass PDI"}
         </button>
       </div>
+    </div>
+  );
+}
+
+// Techwheels' PDI board: the day's inspections and checklist, and the flow every allotted car goes
+// through until it is ready (rework, move to the delivery bay, wash).
+export default function PdiBoard() {
+  const [tab, setTab] = useTabState("flow");
+  return (
+    <div>
+      <Tabs current={tab} onChange={setTab} tabs={[{ id: "flow", label: "PDI flow" }, { id: "day", label: "Inspections by day" }]} />
+      {tab === "flow" ? <PdiFlow /> : <PdiDayBoard />}
     </div>
   );
 }

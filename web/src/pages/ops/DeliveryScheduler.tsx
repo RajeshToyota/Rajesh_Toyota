@@ -1,4 +1,7 @@
 import { useMemo, useState } from "react";
+import { DeliveryDayBoard } from "./Flow";
+import { Tabs as DTabs } from "@/ui";
+import { useState as useDTabState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@/lib/query";
 import { useRightGate } from "@/lib/rbac";
@@ -28,7 +31,7 @@ const addDays = (d: string, n: number) => new Date(new Date(d).getTime() + n * 8
 const dayLabel = (d: string) => new Date(d).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
 
 // Techwheels' delivery scheduler: a week of handover slots per branch, with how ready each car is.
-export default function DeliveryScheduler() {
+function DeliveryWeek() {
   const [from, setFrom] = useState(todayIst());
   const [outlet, setOutlet] = useState("");
   const to = addDays(from, 6);
@@ -168,5 +171,16 @@ function BookSlot({ from }: { from: string }) {
         />
       </div>
     </Card>
+  );
+}
+
+// Techwheels' delivery scheduler: the day board of bays × times, and the week at a glance.
+export default function DeliveryScheduler() {
+  const [tab, setTab] = useDTabState("day");
+  return (
+    <div>
+      <DTabs current={tab} onChange={setTab} tabs={[{ id: "day", label: "Day board (bays)" }, { id: "week", label: "Week" }]} />
+      {tab === "day" ? <DeliveryDayBoard /> : <DeliveryWeek />}
+    </div>
   );
 }

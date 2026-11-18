@@ -45,6 +45,9 @@ export default function AppLayout() {
       <Stack.Screen name="bookings/[id]/delivery" options={{ title: "Delivery" }} />
       <Stack.Screen name="bookings/[id]/hold-cancel" options={{ title: "Hold or Cancel" }} />
       <Stack.Screen name="approvals/index" options={{ title: "Pending Approvals" }} />
+      <Stack.Screen name="pdi/index" options={{ title: "PDI" }} />
+      <Stack.Screen name="pdi/[inspectionId]" options={{ title: "PDI Checklist" }} />
+      <Stack.Screen name="deliveries/index" options={{ title: "My Deliveries" }} />
       <Stack.Screen name="profile" options={{ title: "Profile" }} />
     </Stack>
   );

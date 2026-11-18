@@ -43,6 +43,8 @@ export default function HomeScreen() {
     { href: "/(app)/quotes" as const, label: "My Quotes", description: "View quotes you've created" },
     { href: "/(app)/bookings/new" as const, label: "New Booking", description: "Book a vehicle directly, no prior quote needed" },
     { href: "/(app)/bookings" as const, label: "My Bookings", description: "View bookings you've created" },
+    { href: "/(app)/deliveries" as const, label: "My Deliveries", description: "Your upcoming handovers and how ready each car is" },
+    { href: "/(app)/pdi" as const, label: "PDI", description: "Checklist, rework, move to the bay and wash (PDI team)" },
     { href: "/(app)/approvals" as const, label: "Pending Approvals", description: "Review discounts awaiting your sign-off" },
     { href: "/(app)/profile" as const, label: "Profile", description: "Your role, outlet, and manager" },
   ];
