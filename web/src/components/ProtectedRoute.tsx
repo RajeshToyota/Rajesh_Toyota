@@ -2,11 +2,14 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase/client";
 import { loadCurrentEmployee, resetCurrentEmployee, useAuthStore } from "@/lib/auth";
-import { loadRbac, resetRbac, useRbacStore } from "@/lib/rbac";
+import { loadRbac, resetRbac, setRbacAdmin, useRbacStore } from "@/lib/rbac";
 
+// The employee row and the module rights are independent requests, so fetch them together: with the
+// database in us-east-1 and staff in India each round-trip is ~300 ms, and doing them back to back
+// added one to every page load. Rights only need the role rank afterwards (for the admin bypass).
 async function loadAll(force = false) {
-  const employee = await loadCurrentEmployee({ force });
-  if (employee) await loadRbac(employee.roleRank);
+  const [employee] = await Promise.all([loadCurrentEmployee({ force }), loadRbac()]);
+  if (employee) setRbacAdmin(employee.roleRank);
   else resetRbac();
 }
 
