@@ -25,4 +25,12 @@ export const phaseRoutes: { path: string; module?: string; Component: ComponentT
   { path: "/incentives/schemes", module: "incentive_schemes", Component: lazy(() => import("@/pages/incentives/Schemes")) },
   { path: "/incentives/bank-payouts", module: "bank_payouts", Component: lazy(() => import("@/pages/incentives/BankPayouts")) },
   { path: "/incentives/me", module: "my_incentive", Component: lazy(() => import("@/pages/incentives/MyIncentive")) },
+
+  // Phase 21: stock extras
+  { path: "/stock/price-diff", module: "price_diff", Component: lazy(() => import("@/pages/stockx/PriceDiff")) },
+  { path: "/stock/control", module: "stock_control", Component: lazy(() => import("@/pages/stockx/StockControl")) },
+  { path: "/stock/transfers", module: "stock_transfers", Component: lazy(() => import("@/pages/stockx/Transfers")) },
+  { path: "/stock/yard", module: "vehicle_location", Component: lazy(() => import("@/pages/stockx/Yard")) },
+  { path: "/stock/other-dealers", module: "other_dealers", Component: lazy(() => import("@/pages/stockx/OtherDealers")) },
+  { path: "/search", module: "search_console", Component: lazy(() => import("@/pages/stockx/Search")) },
 ];
