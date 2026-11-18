@@ -64,4 +64,7 @@ export const phaseRoutes: { path: string; module?: string; Component: ComponentT
   { path: "/stock/dealer-transfers", module: "dealer_transfers", Component: lazy(() => import("@/pages/stockx/DealerTransfers")) },
   { path: "/stock/monitor", module: "stock_monitor", Component: lazy(() => import("@/pages/stockx/Monitor")) },
   { path: "/stock/planning", module: "stock_planning", Component: lazy(() => import("@/pages/stockx/Planning")) },
+
+  // Phase 28: pool extras
+  { path: "/stock/pool/next-in-line", module: "stock_pool_extras", Component: lazy(() => import("@/pages/stockx/PoolExtras")) },
 ];
