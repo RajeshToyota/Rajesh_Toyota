@@ -76,15 +76,30 @@ export function VehicleSelectionStep({ step, vs }: { step: number; vs: VehicleSe
 
     case 4:
       return (
-        <PickerList
-          options={vs.colors.map((c) => ({
-            id: c.id,
-            label: c.name,
-            sublabel: c.extra_cost > 0 ? `+₹${c.extra_cost.toLocaleString("en-IN")}` : undefined,
-          }))}
-          selectedId={vs.colorId}
-          onSelect={vs.setColorId}
-        />
+        <View className="gap-4">
+          <PickerList
+            options={vs.colors.map((c) => ({
+              id: c.id,
+              label: c.name,
+              sublabel: c.extra_cost > 0 ? `+₹${c.extra_cost.toLocaleString("en-IN")}` : undefined,
+            }))}
+            selectedId={vs.colorId}
+            onSelect={vs.setColorId}
+          />
+          {vs.interiors.length === 1 && (
+            <Text className="text-sm text-slate-600">Interior: {vs.interiors[0].name}</Text>
+          )}
+          {vs.interiors.length > 1 && (
+            <>
+              <Text className="font-medium text-slate-700">Interior colour</Text>
+              <PickerList
+                options={vs.interiors.map((c) => ({ id: c.id, label: c.name }))}
+                selectedId={vs.interiorColorId}
+                onSelect={vs.setInteriorColorId}
+              />
+            </>
+          )}
+        </View>
       );
 
     case 5:

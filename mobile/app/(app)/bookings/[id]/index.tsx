@@ -17,6 +17,10 @@ export default function BookingScreen() {
   const [financeCase, setFinanceCase] = useState<FinanceCase | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  // Interiors this booking's variant comes in, offered only while none is set (e.g. bookings
+  // that arrived from CTDMS on a Black-or-Maroon variant).
+  const [interiorOptions, setInteriorOptions] = useState<{ id: string; name: string }[]>([]);
+  const [savingInterior, setSavingInterior] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -28,6 +32,20 @@ export default function BookingScreen() {
       ]);
       setFinanceCase(f[0] ?? null);
       setBooking(b);
+      if (b.variant_id && !b.interior_color_id) {
+        const { data } = await supabase
+          .from("variant_interior_colors")
+          .select("interior_colors(id, name)")
+          .eq("variant_id", b.variant_id);
+        setInteriorOptions(
+          (data ?? [])
+            .map((r: any) => (Array.isArray(r.interior_colors) ? r.interior_colors[0] : r.interior_colors))
+            .filter(Boolean)
+            .sort((x: any, y: any) => x.name.localeCompare(y.name)),
+        );
+      } else {
+        setInteriorOptions([]);
+      }
       setDocket(d);
       setAllotment((a.data as Allotment | null) ?? null);
       setError(null);
@@ -84,7 +102,34 @@ export default function BookingScreen() {
           <Text className="text-lg font-semibold text-slate-900">{booking.customer_name ?? "Customer"}</Text>
           <Text className="mt-1 text-sm text-slate-500">
             {vehicle} · {booking.colors?.name ?? "—"}
+            {booking.interior_colors?.name ? ` · ${booking.interior_colors.name} interior` : ""}
           </Text>
+          {!booking.interior_color_id && interiorOptions.length > 1 && (
+            <View className="mt-3 gap-2">
+              <Text className="text-sm font-medium text-amber-700">Pick the interior colour</Text>
+              <View className="flex-row flex-wrap gap-2">
+                {interiorOptions.map((o) => (
+                  <Pressable
+                    key={o.id}
+                    disabled={!!savingInterior}
+                    onPress={async () => {
+                      setSavingInterior(o.id);
+                      const { error: saveError } = await supabase
+                        .from("bookings")
+                        .update({ interior_color_id: o.id })
+                        .eq("id", booking.id);
+                      setSavingInterior(null);
+                      if (saveError) setError(saveError.message);
+                      else await load();
+                    }}
+                    className="rounded-lg border border-slate-300 px-4 py-2"
+                  >
+                    {savingInterior === o.id ? <ActivityIndicator /> : <Text className="text-slate-900">{o.name}</Text>}
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )}
           <Text className="mt-1 text-sm text-slate-500">
             {booking.order_booking_no ?? booking.ctdms_order_booking_no ?? "No booking number yet"} · {booking.status}
           </Text>

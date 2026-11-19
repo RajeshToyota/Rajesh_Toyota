@@ -43,6 +43,7 @@ export type PriceListType = "private" | "commercial" | "csd";
 export interface QuoteSelections {
   variant_id: string;
   color_id: string;
+  interior_color_id?: string | null;
   state: string;
   rto_category_id: string;
   list_type?: PriceListType;

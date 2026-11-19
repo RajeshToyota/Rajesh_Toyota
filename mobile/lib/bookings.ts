@@ -38,6 +38,7 @@ export async function confirmBooking(params: {
       ctdms_order_booking_no: params.ctdmsOrderBookingNo ?? null,
       variant_id: params.selections.variant_id,
       color_id: params.selections.color_id,
+      interior_color_id: params.selections.interior_color_id ?? null,
       rto_category_id: params.selections.rto_category_id,
       price_list_type: params.selections.list_type ?? "private",
       insurance_option: params.selections.insurance_option ?? null,

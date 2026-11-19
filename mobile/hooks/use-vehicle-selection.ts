@@ -30,6 +30,10 @@ export function useVehicleSelection(state: string) {
   const [variantId, setVariantId] = useState<string | null>(null);
   const [colors, setColors] = useState<Row[]>([]);
   const [colorId, setColorId] = useState<string | null>(null);
+  // Interiors the chosen variant comes in. One is filled in automatically; with two or more
+  // (e.g. Black or Maroon) the consultant picks one on the Color step.
+  const [interiors, setInteriors] = useState<Row[]>([]);
+  const [interiorColorId, setInteriorColorId] = useState<string | null>(null);
 
   const [rtoCategories, setRtoCategories] = useState<Row[]>([]);
   const [rtoCategoryId, setRtoCategoryId] = useState<string | null>(null);
@@ -94,6 +98,27 @@ export function useVehicleSelection(state: string) {
           paint_category: r.colors.paint_category,
         }));
         setColors(rows);
+      });
+  }, [variantId]);
+
+  useEffect(() => {
+    setInteriorColorId(null);
+    if (!variantId) {
+      setInteriors([]);
+      return;
+    }
+    supabase
+      .from("variant_interior_colors")
+      .select("interior_colors(id, name, is_active)")
+      .eq("variant_id", variantId)
+      .then(({ data }) => {
+        const rows = (data ?? [])
+          .map((r: Row) => (Array.isArray(r.interior_colors) ? r.interior_colors[0] : r.interior_colors))
+          .filter((c: Row | null) => c && c.is_active)
+          .map((c: Row) => ({ id: c.id, name: c.name }))
+          .sort((a: Row, b: Row) => a.name.localeCompare(b.name));
+        setInteriors(rows);
+        if (rows.length === 1) setInteriorColorId(rows[0].id);
       });
   }, [variantId]);
 
@@ -230,6 +255,7 @@ export function useVehicleSelection(state: string) {
 
   const selectedVariantName = variantsForModel.find((v) => v.id === variantId)?.name ?? "";
   const selectedColorName = colors.find((c) => c.id === colorId)?.name ?? "";
+  const selectedInteriorName = interiors.find((c) => c.id === interiorColorId)?.name ?? "";
   const selectedModelName = models.find((m) => m.id === modelId)?.name ?? "";
   const selectedRtoName = rtoCategories.find((r) => r.id === rtoCategoryId)?.name ?? "";
   const isScrapLinkedRto = selectedRtoName.toLowerCase().includes("scrap");
@@ -254,6 +280,7 @@ export function useVehicleSelection(state: string) {
     return {
       variant_id: variantId!,
       color_id: colorId!,
+      interior_color_id: interiorColorId,
       state,
       rto_category_id: rtoCategoryId!,
       list_type: priceListType,
@@ -278,7 +305,7 @@ export function useVehicleSelection(state: string) {
     1: !!fuelTypeId,
     2: !!transmissionId,
     3: !!variantId,
-    4: !!colorId,
+    4: !!colorId && (interiors.length === 0 || !!interiorColorId),
     5: !!rtoCategoryId && (!isScrapLinkedRto || !!scrapSource),
     6: true,
     7:
@@ -294,6 +321,7 @@ export function useVehicleSelection(state: string) {
     transmissionId, setTransmissionId,
     variantId, setVariantId,
     colors, colorId, setColorId,
+    interiors, interiorColorId, setInteriorColorId,
     rtoCategories, rtoCategoryId, setRtoCategoryId,
     scrapSource, setScrapSource, scrapAmount, setScrapAmount,
     scrapCertificateNumber, setScrapCertificateNumber,
@@ -309,7 +337,7 @@ export function useVehicleSelection(state: string) {
     vasProducts, vasProductIds, setVasProductIds,
     toggleFrom,
     availableFuelTypes, availableTransmissions, availableVariants,
-    selectedVariantName, selectedColorName, selectedModelName,
+    selectedVariantName, selectedColorName, selectedInteriorName, selectedModelName,
     isScrapLinkedRto,
     buildSelections,
     stepValid,
