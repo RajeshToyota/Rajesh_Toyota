@@ -124,4 +124,5 @@ engine in `supabase/migrations/` (Phase 1) for the shared `calculate_price` impl
   - `20261119010011` → `20261119061504` used_cars_reception (Phase 33)
   - `20261119020001` → `20261119063109` masters_menu_dedupe (Phase 24 pages off the flat menu)
   - `20261119020002` → `20261119063537` menu_merges (one menu entry per job)
+  - `20261119050001` → `20261119091522` moved_screens_paths; `20261119060001` → `20261119113403` tab_paths (each tab its own address)
   - The us-east-1 fallback (`dvcjynxvqpcydcphdcst`) does not have these.
