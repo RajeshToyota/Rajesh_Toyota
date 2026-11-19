@@ -198,36 +198,9 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
   },
   {
     title: "Schemes",
+    // Schemes and their lines are edited only on the Schemes tab (/masters/schemes/revisions), which
+    // keeps revisions from overlapping; there is no raw table editor for them.
     entities: [
-      {
-        slug: "schemes",
-        table: "schemes",
-        title: "Schemes",
-        orderBy: "valid_from",
-        fields: [
-          { key: "model_id", label: "Model", type: "foreign_key", foreignTable: "models", required: true },
-          { key: "suffix_scope_list", label: "Suffix Scope (comma-separated codes, blank = all)", type: "text_array" },
-          { key: "name", label: "Name", type: "text", required: true },
-          { key: "valid_from", label: "Valid From", type: "date", required: true },
-          { key: "valid_to", label: "Valid To", type: "date", required: true },
-        ],
-      },
-      {
-        slug: "scheme-line-items",
-        table: "scheme_line_items",
-        title: "Scheme Line Items",
-        description: "Individual discount/incentive lines within a scheme. Mark is_customer_facing = off for dealer/TKM-only margin items — these are never shown on a customer quote.",
-        fields: [
-          { key: "scheme_id", label: "Scheme", type: "foreign_key", foreignTable: "schemes", required: true },
-          { key: "line_type", label: "Line Type", type: "text", required: true },
-          { key: "scheme_master_code", label: "Category (scheme master code)", type: "text" },
-          { key: "tkm_share", label: "TKM Share", type: "number", step: "0.01" },
-          { key: "dealer_share", label: "Dealer Share", type: "number", step: "0.01" },
-          { key: "prev_my_tkm_share", label: "TKM Share (previous MY)", type: "number", step: "0.01", hideInTable: true },
-          { key: "prev_my_dealer_share", label: "Dealer Share (previous MY)", type: "number", step: "0.01", hideInTable: true },
-          { key: "is_customer_facing", label: "Customer Facing", type: "boolean" },
-        ],
-      },
       {
         slug: "scheme-conditions",
         table: "scheme_conditions",

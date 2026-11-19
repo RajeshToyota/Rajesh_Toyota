@@ -174,6 +174,9 @@ export const movedScreens: Record<string, string> = {
   "/stock/billing": "/ops-billing/crm-billing/invoices",
   "/payments": "/ops-billing/receipts/clearance",
   "/used-cars/evaluations": "/used-cars/exchange/evaluations",
+  // Raw table editors replaced by the Schemes tab.
+  "/admin/schemes": "/masters/schemes/revisions",
+  "/admin/scheme-line-items": "/masters/schemes/revisions",
   ...Object.fromEntries(
     tabbedScreens.flatMap((s) => s.tabs.flatMap((t) => (t.entity ? [[`/admin/${t.entity}`, tabHref(s, t)]] : []))),
   ),
