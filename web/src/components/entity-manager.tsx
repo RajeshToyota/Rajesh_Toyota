@@ -23,6 +23,24 @@ function parseBool(raw: string): boolean | null {
   return null;
 }
 
+// Accepts YYYY-MM-DD (what Export writes) plus the day-first forms Excel re-saves dates as in an
+// Indian locale: DD-MM-YYYY, DD/MM/YYYY, DD.MM.YYYY (single-digit day/month allowed).
+// Returns YYYY-MM-DD, or null if the text is not a real calendar date.
+function parseDate(raw: string): string | null {
+  let y: number, m: number, d: number;
+  let match = raw.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  if (match) {
+    [y, m, d] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  } else {
+    match = raw.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+    if (!match) return null;
+    [d, m, y] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  }
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null;
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
 function emptyForm(fields: FieldConfig[]): Row {
   const form: Row = {};
   for (const f of fields.filter((x) => !x.readOnly)) {
@@ -325,8 +343,9 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
             break;
           }
           case "date": {
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) problems.push(`Row ${line}: "${f.label}" must be YYYY-MM-DD (got "${raw}").`);
-            payload[f.key] = raw;
+            const iso = parseDate(raw);
+            if (!iso) problems.push(`Row ${line}: "${f.label}" must be a date as DD-MM-YYYY or YYYY-MM-DD (got "${raw}").`);
+            payload[f.key] = iso;
             break;
           }
           case "text_array":
