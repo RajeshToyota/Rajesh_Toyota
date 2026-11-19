@@ -50,6 +50,7 @@ type BookingRow = {
   total_amount: number | null;
   variants: (Named & { suffix: string | null; models: Named | Named[] | null }) | null;
   colors: Named | Named[] | null;
+  interior_colors: Named | Named[] | null;
   outlets: Named | Named[] | null;
   employees: Named | Named[] | null;
 };
@@ -85,7 +86,8 @@ export default async function BookingDocketPage({ params }: { params: Promise<{ 
     .from("bookings")
     .select(
       "id, order_booking_no, ctdms_order_booking_no, customer_name, customer_mobile, status, total_amount, mode_of_purchase, " +
-        "created_at, variants(name, suffix, models(name)), colors(name), outlets(name), employees!bookings_employee_id_fkey(name)",
+        "created_at, variants(name, suffix, models(name)), colors(name), interior_colors(name), outlets(name), " +
+        "employees!bookings_employee_id_fkey(name)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -114,6 +116,7 @@ export default async function BookingDocketPage({ params }: { params: Promise<{ 
   const variant = b.variants;
   const vehicle = `${one(variant?.models ?? null)?.name ?? ""} ${variant?.name ?? ""}`.trim();
   const colorName = one(b.colors)?.name;
+  const interiorName = one(b.interior_colors)?.name;
   const label = (v: string | null | undefined) => (v ? (LABELS[v] ?? v) : null);
 
   return (
@@ -125,6 +128,7 @@ export default async function BookingDocketPage({ params }: { params: Promise<{ 
           </Link>
           <h2 className="mt-1 text-base font-semibold text-slate-900">
             {b.customer_name ?? "Booking"} · {vehicle} {colorName ? `· ${colorName}` : ""}
+            {interiorName ? ` · ${interiorName} interior` : ""}
           </h2>
           <p className="text-sm text-slate-500">
             {b.order_booking_no ?? b.ctdms_order_booking_no ?? "No booking number"} · {one(b.outlets)?.name} ·{" "}
