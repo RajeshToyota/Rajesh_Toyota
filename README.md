@@ -108,3 +108,18 @@ engine in `supabase/migrations/` (Phase 1) for the shared `calculate_price` impl
   - `20261118000008` → `20261118075219` employee_salary (salary type, monthly salary, ESI, PF)
   - The CTDMS staff (36) and open orders (265) were loaded with `execute_sql` and are not recorded as
     migrations.
+- Mumbai (`zayuhrajnaenwuiutcpq`), 19 Nov 2026 — Phases 23–33, applied in order through the Management API
+  migrations endpoint (comments stripped) after a rolled-back dry run of all eleven on live data:
+  - `20261118000009` → `20261118114503` rto_formula_single_price_row; `20261119000001` → `20261119061142` glanza_cng_variant_names
+  - `20261119010001` → `20261119061424` access_studio_depth (Phase 23)
+  - `20261119010002` → `20261119061429` catalog_pricing_masters (Phase 24; BH / Scrap / Transfer RTO on the single-row price list)
+  - `20261119010003` → `20261119061432` quotes_workbench (Phase 25)
+  - `20261119010004` → `20261119061436` booking_docs_refunds (Phase 26)
+  - `20261119010005` → `20261119061440` stock_yard_form22 (Phase 27)
+  - `20261119010006` → `20261119061444` pool_extras (Phase 28)
+  - `20261119010007` → `20261119061449` finance_claims (Phase 29)
+  - `20261119010008` → `20261119061453` ops_billing_screens (Phase 30)
+  - `20261119010009` → `20261119061456` pdi_delivery_flow (Phase 31)
+  - `20261119010010` → `20261119061500` payroll (Phase 32)
+  - `20261119010011` → `20261119061504` used_cars_reception (Phase 33)
+  - The us-east-1 fallback (`dvcjynxvqpcydcphdcst`) does not have these.
