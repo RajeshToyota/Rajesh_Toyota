@@ -529,7 +529,7 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
       {
         slug: "ceramic-coating",
         table: "ceramic_coating_prices",
-        title: "Ceramic Coating",
+        title: "TGLOSS",
         fields: [
           { key: "model_id", label: "Model", type: "foreign_key", foreignTable: "models", required: true },
           { key: "name", label: "Name", type: "text", required: true },
