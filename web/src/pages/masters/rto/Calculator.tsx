@@ -1,25 +1,9 @@
 import { useState } from "react";
 import { Card, Loaded, Select, Table, Td, inr, inputCls, rpc } from "@/ui";
 import { useQuery } from "@/lib/query";
-import { MasterTabs, useVariants, variantLabel } from "./shared";
+import { useVariants, variantLabel } from "../shared";
 
 type Breakdown = Record<string, number | string>;
-
-// Techwheels' RTO settings and formula. The TKM price list's Road Tax & Registration is used for a
-// normal registration when it is printed; the formula prices BH, transfer and scrap registrations,
-// and normal ones when the list leaves the amount blank.
-export default function Rto() {
-  return (
-    <MasterTabs
-      page="rto"
-      title="RTO Settings"
-      note="Normal: the list's fixed charges + MV tax (ex-showroom × the price-list row's rate) + surcharge + the row's green tax and extra charges; a row with no MV tax rate uses the printed figure. BH = ex/(1+GST) × rate ÷ 6 + fixed charges + BH fee. Scrap: 26% of tax + surcharge off, at most ₹1,00,000. Transfer: flat."
-      panels={{
-        calc: () => <Calculator />,
-      }}
-    />
-  );
-}
 
 const LABELS: Record<string, string> = {
   fixed_charges: "Fixed charges",
@@ -32,7 +16,7 @@ const LABELS: Record<string, string> = {
   total: "Total",
 };
 
-function Calculator() {
+export default function Calculator() {
   const variants = useVariants();
   const [variantId, setVariantId] = useState("");
   const [ex, setEx] = useState("");

@@ -8,8 +8,8 @@ import { ported, type Loader } from "@/compat/ported";
 import { setNavigate } from "@/compat/navigate";
 import RequireModule from "@/components/RequireModule";
 import { phaseRoutes } from "@/routes";
-import { mergedPage } from "@/components/merged-page";
-import { movedScreens, screenModules } from "@/lib/screen-access";
+import { tabbedScreenRoute } from "@/components/tabbed-screen";
+import { movedScreens, tabbedScreens } from "@/lib/tabbed-screens";
 
 const VerifyReceipt = lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.VerifyReceipt })));
 
@@ -29,14 +29,7 @@ const routes: RouteDef[] = [
   { path: "/enquiries", module: "enquiries", Component: ported(() => import("@/pages/staff/enquiries/page")) },
   { path: "/enquiries/new", module: "enquiries_new", Component: ported(() => import("@/pages/staff/enquiries/new/page")) },
   { path: "/crm-sync", module: "crm_sync", Component: ported(() => import("@/pages/staff/crm-sync/page")) },
-  // Finance Cases: the stage pipeline and the multi-bank desk (verification), one menu entry.
-  {
-    path: "/finance", module: "finance_cases",
-    Component: mergedPage([
-      { id: "pipeline", label: "Pipeline", module: "finance_cases", Component: ported(() => import("@/pages/staff/finance/page")) },
-      { id: "desk", label: "All banks & verification", module: "finance_desk", Component: lazy(() => import("@/pages/finance/Desk")) },
-    ]),
-  },
+  // Finance Cases (/finance) is a tabbed screen: lib/tabbed-screens.
   { path: "/finance/:id", module: "finance_cases", Component: ported(() => import("@/pages/staff/finance/[id]/page")) },
 
   // Stock
@@ -99,13 +92,10 @@ const routes: RouteDef[] = [
   ...phaseRoutes,
 ];
 
-// An old address of a screen that is now a tab elsewhere: go there, keeping any other query.
+// An old address of a screen that is now a tab elsewhere: go there, keeping the query.
 function MovedScreen({ to }: { to: string }) {
   const { search } = useLocation();
-  const [path, query] = to.split("?");
-  const params = new URLSearchParams(search);
-  new URLSearchParams(query).forEach((v, k) => params.set(k, v));
-  return <Navigate to={`${path}?${params}`} replace />;
+  return <Navigate to={`${to}${search}`} replace />;
 }
 
 // Hands the router's navigate to code outside components (server actions, redirect()).
@@ -144,13 +134,14 @@ export default function App() {
               path={path}
               element={
                 <Suspense fallback={<p className="py-10 text-center text-sm text-slate-400">Loading…</p>}>
-                  <RequireModule module={screenModules[path] ?? module}>
+                  <RequireModule module={module}>
                     <Component />
                   </RequireModule>
                 </Suspense>
               }
             />
           ))}
+          {tabbedScreens.map(tabbedScreenRoute)}
           {Object.entries(movedScreens).map(([from, to]) => (
             <Route key={from} path={from} element={<MovedScreen to={to} />} />
           ))}

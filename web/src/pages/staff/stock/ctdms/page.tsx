@@ -147,7 +147,7 @@ export default async function CtdmsTodoPage() {
           <>
             CTDMS colour names we could not match. Pick our colour once; it applies to every car with that name and variant. A
             suffix that is not in master data has to be added under{" "}
-            <Link href="/masters/catalog?tab=variants" className="underline">
+            <Link href="/masters/catalog/variants" className="underline">
               Variants
             </Link>{" "}
             (TKM suffix code) first.

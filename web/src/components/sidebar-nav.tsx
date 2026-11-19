@@ -1,13 +1,11 @@
 "use client";
 
-import { useLocation } from "react-router-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRbacStore } from "@/lib/rbac";
 import { entityGroups } from "@/lib/entities";
-import { masterTabFor } from "@/lib/master-pages";
-import { screenModules } from "@/lib/screen-access";
+import { masterTabFor, screenModules, tabHref, tabbedScreens } from "@/lib/tabbed-screens";
 
 type NavLink = { href: string; label: string };
 type NavGroup = { title: string; links?: NavLink[]; subgroups?: { title: string; links: NavLink[] }[] };
@@ -32,8 +30,8 @@ const fallbackGroups: NavGroup[] = [
       { href: "/stock/vna", label: "VNA Demand" },
       { href: "/stock/match", label: "Match & Allot" },
       { href: "/stock/allotted", label: "Allotted" },
-      { href: "/ops-billing/crm-billing?tab=invoices", label: "Billing" },
-      { href: "/ops-billing/receipts?tab=clearance", label: "Payments" },
+      { href: "/ops-billing/crm-billing/invoices", label: "Billing" },
+      { href: "/ops-billing/receipts/clearance", label: "Payments" },
       { href: "/cancellations", label: "Cancellation Approvals" },
       { href: "/stock/ctdms", label: "CTDMS To-do" },
       { href: "/stock/import", label: "Import Stock" },
@@ -61,28 +59,21 @@ const fallbackGroups: NavGroup[] = [
   },
 ];
 
-// Tools that live only on the dedicated masters pages (Phase 24), listed once inside their subgroup.
-// Each is gated by its own module, so someone with that module but not "masters" still sees it.
-const mastersTools: Record<string, (NavLink & { module: string })[]> = {
-  Catalog: [
-    { href: "/masters/catalog?tab=photos", label: "Colour Photos", module: "catalog" },
-    { href: "/masters/catalog?tab=content", label: "Variant Content", module: "catalog" },
-    { href: "/masters/catalog?tab=accessory-check", label: "Accessories by Variant", module: "catalog" },
-  ],
-  Schemes: [
-    { href: "/masters/schemes?tab=revisions", label: "Scheme Revisions", module: "schemes" },
-    { href: "/masters/schemes?tab=bulk", label: "Bulk Scheme Entry", module: "schemes" },
-    { href: "/masters/discount-rules", label: "Variant Coupon Cap", module: "discount_rules" },
-  ],
-  RTO: [{ href: "/masters/rto?tab=calc", label: "RTO Calculator", module: "rto_settings" }],
-  Insurance: [{ href: "/masters/insurance?tab=compare", label: "Compare Insurers", module: "insurance_rates" }],
-};
+// Tools on the masters pages that are not a table (lib/tabbed-screens), listed once inside their
+// subgroup, plus the Variant Coupon Cap screen. Each is gated by its own module, so someone with
+// that module but not "masters" still sees it.
+const mastersTools: Record<string, (NavLink & { modules: string[] })[]> = {};
+for (const s of tabbedScreens) {
+  if (!s.mastersGroup) continue;
+  for (const t of s.tabs) if (t.menuLabel) (mastersTools[s.mastersGroup] ??= []).push({ href: tabHref(s, t), label: t.menuLabel, modules: t.modules });
+}
+(mastersTools.Schemes ??= []).push({ href: "/masters/discount-rules", label: "Variant Coupon Cap", modules: ["discount_rules"] });
 
 // Master data drills down one more level: group ▸ table (and the group's tools). A table that is a
 // tab on a masters page links to that tab, its only page; the rest open at /admin/<slug>.
 function tableLink(slug: string, label: string, canView: (key: string) => boolean): NavLink[] {
   const tab = masterTabFor(slug);
-  if (tab) return canView("masters") || canView(tab.module) ? [{ href: tab.href, label }] : [];
+  if (tab) return tab.modules.some(canView) ? [{ href: tab.href, label }] : [];
   return canView("masters") ? [{ href: `/admin/${slug}`, label }] : [];
 }
 
@@ -92,7 +83,7 @@ function mastersSubgroups(canView: (key: string) => boolean) {
       title: g.title,
       links: [
         ...g.entities.filter((e) => !e.hideInMenu).flatMap((e) => tableLink(e.slug, e.title, canView)),
-        ...(mastersTools[g.title] ?? []).filter((t) => canView(t.module)).map(({ href, label }) => ({ href, label })),
+        ...(mastersTools[g.title] ?? []).filter((t) => t.modules.some(canView)).map(({ href, label }) => ({ href, label })),
       ],
     }))
     .filter((g) => g.links.length > 0);
@@ -148,9 +139,8 @@ export function SidebarNav() {
     };
   }, []);
 
-  const { search } = useLocation();
-  // A tool link names its tab (?tab=…); it is active only on that tab.
-  const isActive = (href: string) => (href.includes("?") ? href === pathname + search : pathname === href);
+  // A link to a tabbed screen stays active on any of its tabs.
+  const isActive = (href: string) => pathname === href || (href in screenModules && pathname.startsWith(`${href}/`));
 
   return (
     <div ref={ref} className="relative">

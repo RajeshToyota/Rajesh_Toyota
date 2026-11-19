@@ -74,7 +74,7 @@ export default async function FinanceCasePage({ params }: { params: Promise<{ id
   return (
     <div className="space-y-4">
       <div>
-        <Link href="/finance" className="text-sm text-slate-500 hover:underline">
+        <Link href="/finance/pipeline" className="text-sm text-slate-500 hover:underline">
           ← Finance cases
         </Link>
         <h1 className="mt-1 text-lg font-semibold text-slate-900">

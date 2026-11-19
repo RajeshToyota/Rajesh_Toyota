@@ -60,7 +60,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
             Consultants open cases and collect documents on the app; the branch&apos;s Finance Executive moves them on here.
           </p>
         </div>
-        <Link href={showClosed ? "/finance" : "/finance?closed=1"} className="text-sm text-slate-600 underline">
+        <Link href={showClosed ? "/finance/pipeline" : "/finance/pipeline?closed=1"} className="text-sm text-slate-600 underline">
           {showClosed ? "Open cases" : "Disbursed & rejected"}
         </Link>
       </div>

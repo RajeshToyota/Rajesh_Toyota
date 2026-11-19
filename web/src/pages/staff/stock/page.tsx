@@ -29,7 +29,7 @@ export default async function FreeStockPage() {
   const supabase = await createClient();
   const employee = await getCurrentEmployee();
   if (isAccounts(employee)) {
-    return <p className="text-sm text-slate-600">Accounts works the <Link href="/ops-billing/crm-billing?tab=invoices" className="underline">billing queue</Link>.</p>;
+    return <p className="text-sm text-slate-600">Accounts works the <Link href="/ops-billing/crm-billing/invoices" className="underline">billing queue</Link>.</p>;
   }
 
   const { data } = await supabase

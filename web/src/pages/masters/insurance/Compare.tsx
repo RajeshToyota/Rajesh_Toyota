@@ -2,7 +2,7 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { must, useQuery } from "@/lib/query";
 import { Card, Chip, EmptyRow, Loaded, Select, Table, Td, inr, rpcRows } from "@/ui";
-import { MasterTabs, useVariants, variantLabel } from "./shared";
+import { useVariants, variantLabel } from "../shared";
 
 type Quote = {
   provider_id: string;
@@ -23,22 +23,8 @@ type Quote = {
   };
 };
 
-// Techwheels' insurance settings: per-variant rates, OD discounts, insurer add-on rates and the
-// comparison the quote uses (cheapest insurer first; zero-dep and consumables always included).
-export default function Insurance() {
-  return (
-    <MasterTabs
-      page="insurance"
-      title="Insurance Rates"
-      note="Premium = OD less the highest enabled discount + TP + other charges + add-ons (% of IDV) + 18% GST. When the price list prints an insurance option, that is used instead."
-      panels={{
-        compare: () => <Compare />,
-      }}
-    />
-  );
-}
-
-function Compare() {
+// The comparison the quote uses: cheapest insurer first; zero-dep and consumables always included.
+export default function Compare() {
   const variants = useVariants();
   const addons = useQuery(
     async () => must(await supabase.from("insurance_addons").select("id, name, is_mandatory").order("name")) as { id: string; name: string; is_mandatory: boolean }[],

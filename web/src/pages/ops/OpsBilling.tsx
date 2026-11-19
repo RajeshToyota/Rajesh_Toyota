@@ -210,7 +210,7 @@ function StageAction({ stage, row }: { stage: StageId; row: Row }) {
     return <RunButton label="Issue gate pass" run={() => rpc("issue_gate_pass", { p_booking_id: id })} />;
   }
   if (stage === "pdi") return <Link to="/pdi-board" className="text-xs text-slate-700 underline">PDI board</Link>;
-  if (stage === "billing") return <Link to="/ops-billing/crm-billing?tab=invoices" className="text-xs text-slate-700 underline">Billing desk</Link>;
+  if (stage === "billing") return <Link to="/ops-billing/crm-billing/invoices" className="text-xs text-slate-700 underline">Billing desk</Link>;
   return <span className="text-xs text-slate-400">{state?.detail}</span>;
 }
 
