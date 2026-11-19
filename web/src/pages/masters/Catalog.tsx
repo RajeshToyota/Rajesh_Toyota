@@ -9,21 +9,14 @@ import { MasterTabs, catalogFileUrl, uploadCatalogFile, useCanWriteMaster, useVa
 export default function Catalog() {
   return (
     <MasterTabs
+      page="catalog"
       title="Cars & Variants"
-      module="catalog"
       note="Prices come from the TKM price list. Tax data on the variant is used by the RTO formula; content and photos are for the quote and the customer."
-      tabs={[
-        { id: "models", label: "Cars", entity: "models" },
-        { id: "variants", label: "Variants", entity: "variants" },
-        { id: "colours", label: "Colours", entity: "colors" },
-        { id: "variant-colours", label: "Variant colours", entity: "variant-colors" },
-        { id: "photos", label: "Colour photos", render: () => <ColourPhotos /> },
-        { id: "content", label: "Variant content", render: () => <VariantContent /> },
-        { id: "accessories", label: "Accessories", entity: "accessories" },
-        { id: "accessory-check", label: "Accessories by variant", render: () => <AccessoriesByVariant /> },
-        { id: "ew", label: "Extended warranty", entity: "ew-prices" },
-        { id: "ceramic", label: "TGLOSS", entity: "ceramic-coating" },
-      ]}
+      panels={{
+        photos: () => <ColourPhotos />,
+        content: () => <VariantContent />,
+        "accessory-check": () => <AccessoriesByVariant />,
+      }}
     />
   );
 }

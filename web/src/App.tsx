@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, type ComponentType } from "react";
-import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminPanel from "@/pages/AdminPanel";
 import LoginPage from "@/pages/login/page";
@@ -9,6 +9,7 @@ import { setNavigate } from "@/compat/navigate";
 import RequireModule from "@/components/RequireModule";
 import { phaseRoutes } from "@/routes";
 import { mergedPage } from "@/components/merged-page";
+import { movedScreens, screenModules } from "@/lib/screen-access";
 
 const VerifyReceipt = lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.VerifyReceipt })));
 
@@ -43,7 +44,6 @@ const routes: RouteDef[] = [
   { path: "/stock/import", module: "stock_import", Component: ported(() => import("@/pages/staff/stock/import/page"), [stockLayout]) },
   { path: "/stock/match", module: "stock_match", Component: ported(() => import("@/pages/staff/stock/match/page"), [stockLayout]) },
   { path: "/stock/allotted", module: "stock_allotted", Component: ported(() => import("@/pages/staff/stock/allotted/page"), [stockLayout]) },
-  { path: "/stock/billing", module: "stock_billing", Component: ported(() => import("@/pages/staff/stock/billing/page"), [stockLayout]) },
   { path: "/stock/ctdms", module: "stock_ctdms", Component: ported(() => import("@/pages/staff/stock/ctdms/page"), [stockLayout]) },
   { path: "/stock/finance-queue", module: "stock_finance_queue", Component: ported(() => import("@/pages/staff/stock/finance-queue/page"), [stockLayout]) },
   { path: "/stock/vna", module: "stock_vna", Component: ported(() => import("@/pages/staff/stock/vna/page"), [stockLayout]) },
@@ -55,7 +55,6 @@ const routes: RouteDef[] = [
     path: "/stock/pool/:variant/:color", module: "stock_pool",
     Component: ported(() => import("@/pages/staff/stock/pool/[variant]/[color]/page"), [stockLayout]),
   },
-  { path: "/payments", module: "payments", Component: ported(() => import("@/pages/staff/payments/page")) },
   { path: "/cancellations", module: "cancellations", Component: ported(() => import("@/pages/staff/cancellations/page")) },
 
   // People
@@ -100,6 +99,15 @@ const routes: RouteDef[] = [
   ...phaseRoutes,
 ];
 
+// An old address of a screen that is now a tab elsewhere: go there, keeping any other query.
+function MovedScreen({ to }: { to: string }) {
+  const { search } = useLocation();
+  const [path, query] = to.split("?");
+  const params = new URLSearchParams(search);
+  new URLSearchParams(query).forEach((v, k) => params.set(k, v));
+  return <Navigate to={`${path}?${params}`} replace />;
+}
+
 // Hands the router's navigate to code outside components (server actions, redirect()).
 function NavigateBridge() {
   const navigate = useNavigate();
@@ -136,12 +144,15 @@ export default function App() {
               path={path}
               element={
                 <Suspense fallback={<p className="py-10 text-center text-sm text-slate-400">Loading…</p>}>
-                  <RequireModule module={module}>
+                  <RequireModule module={screenModules[path] ?? module}>
                     <Component />
                   </RequireModule>
                 </Suspense>
               }
             />
+          ))}
+          {Object.entries(movedScreens).map(([from, to]) => (
+            <Route key={from} path={from} element={<MovedScreen to={to} />} />
           ))}
           <Route path="/reports" element={<Navigate to="/reports/quotes" replace />} />
           <Route path="*" element={<p className="py-10 text-center text-sm text-slate-500">Page not found.</p>} />

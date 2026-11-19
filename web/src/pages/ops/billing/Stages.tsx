@@ -286,8 +286,8 @@ export function CrmBillingStage() {
       panel={(r) => (
         <div className="text-sm">
           {r.invoice_no ? `Invoiced ${r.invoice_no}` : (
-            <Link to="/stock/billing" className="text-blue-700 hover:underline">
-              Record the invoice on the Billing page
+            <Link to="/ops-billing/crm-billing?tab=invoices" className="text-blue-700 hover:underline">
+              Record the invoice on the Invoice queue tab
             </Link>
           )}
         </div>

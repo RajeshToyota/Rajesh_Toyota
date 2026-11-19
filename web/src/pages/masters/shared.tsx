@@ -3,7 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { EntityManager } from "@/components/entity-manager";
 import { findEntity } from "@/lib/entities";
 import { isMasterDataAdmin, useCurrentEmployee } from "@/lib/auth";
-import { useRightGate } from "@/lib/rbac";
+import { useRbacStore, useRightGate } from "@/lib/rbac";
+import { masterPages, type MasterPage, type MasterPageKey } from "@/lib/master-pages";
 import { supabase } from "@/lib/supabase/client";
 import { must, useQuery } from "@/lib/query";
 import { PageHeader, Tabs } from "@/ui";
@@ -15,31 +16,36 @@ export function useCanWriteMaster(module: string) {
   return isMasterDataAdmin(me) || right;
 }
 
-// One masters screen: a header and tabs, each tab either a generic entity editor (by slug) or a
-// custom panel.
+// One masters screen: a header and tabs (listed in lib/master-pages), each tab either a generic
+// entity editor or a custom panel from `panels`. Table tabs are also open to anyone with the
+// "masters" view right, since this tab is the table's only page; custom panels need the page's own.
 export function MasterTabs({
+  page,
   title,
   note,
-  module,
-  tabs,
+  panels = {},
 }: {
+  page: MasterPageKey;
   title: string;
   note?: ReactNode;
-  module: string;
-  tabs: { id: string; label: string; entity?: string; render?: () => ReactNode }[];
+  panels?: Record<string, () => ReactNode>;
 }) {
+  const { module, tabs: allTabs } = masterPages[page] as MasterPage;
   // The tab lives in ?tab= so menu links can open a given tab, even when the page is already open.
   const [params, setParams] = useSearchParams();
-  const tab = params.get("tab") ?? tabs[0].id;
   const setTab = (id: string) => setParams((p) => { p.set("tab", id); return p; }, { replace: true });
   const canWrite = useCanWriteMaster(module);
-  const current = tabs.find((t) => t.id === tab) ?? tabs[0];
+  const { available, isAdmin, rights } = useRbacStore();
+  const canView = (key: string) => !available || isAdmin || rights.has(`${key}:view`);
+  const tabs = allTabs.filter((t) => canView(module) || (t.entity && canView("masters")));
+  if (tabs.length === 0) return <p className="py-10 text-center text-sm text-slate-500">You do not have access to this screen.</p>;
+  const current = tabs.find((t) => t.id === params.get("tab")) ?? tabs[0];
   const config = current.entity ? findEntity(current.entity) : undefined;
   return (
     <div>
       <PageHeader title={title} note={note} />
-      <Tabs current={tab} onChange={setTab} tabs={tabs.map((t) => ({ id: t.id, label: t.label }))} />
-      {config ? <EntityManager key={config.slug} config={config} canWrite={canWrite} /> : current.render?.()}
+      <Tabs current={current.id} onChange={setTab} tabs={tabs.map((t) => ({ id: t.id, label: t.label }))} />
+      {config ? <EntityManager key={config.slug} config={config} canWrite={canWrite} /> : panels[current.id]?.()}
     </div>
   );
 }

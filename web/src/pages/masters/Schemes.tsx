@@ -31,15 +31,13 @@ type Scheme = {
 export default function Schemes() {
   return (
     <MasterTabs
+      page="schemes"
       title="Schemes"
-      module="schemes"
       note="Enter a scheme from its start date: it closes the revision it falls in and runs until the next one. One corporate and one loyalty scheme per deal; exchange and scrappage never together."
-      tabs={[
-        { id: "revisions", label: "Schemes", render: () => <Revisions /> },
-        { id: "bulk", label: "Bulk entry (CSV)", render: () => <Bulk /> },
-        { id: "categories", label: "Categories", entity: "scheme-master" },
-        { id: "conditions", label: "Conditions", entity: "scheme-conditions" },
-      ]}
+      panels={{
+        revisions: () => <Revisions />,
+        bulk: () => <Bulk />,
+      }}
     />
   );
 }

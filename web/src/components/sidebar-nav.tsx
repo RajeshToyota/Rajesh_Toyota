@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRbacStore } from "@/lib/rbac";
 import { entityGroups } from "@/lib/entities";
+import { masterTabFor } from "@/lib/master-pages";
+import { screenModules } from "@/lib/screen-access";
 
 type NavLink = { href: string; label: string };
 type NavGroup = { title: string; links?: NavLink[]; subgroups?: { title: string; links: NavLink[] }[] };
@@ -30,8 +32,8 @@ const fallbackGroups: NavGroup[] = [
       { href: "/stock/vna", label: "VNA Demand" },
       { href: "/stock/match", label: "Match & Allot" },
       { href: "/stock/allotted", label: "Allotted" },
-      { href: "/stock/billing", label: "Billing" },
-      { href: "/payments", label: "Payments" },
+      { href: "/ops-billing/crm-billing?tab=invoices", label: "Billing" },
+      { href: "/ops-billing/receipts?tab=clearance", label: "Payments" },
       { href: "/cancellations", label: "Cancellation Approvals" },
       { href: "/stock/ctdms", label: "CTDMS To-do" },
       { href: "/stock/import", label: "Import Stock" },
@@ -76,13 +78,20 @@ const mastersTools: Record<string, (NavLink & { module: string })[]> = {
   Insurance: [{ href: "/masters/insurance?tab=compare", label: "Compare Insurers", module: "insurance_rates" }],
 };
 
-// Master data drills down one more level: group ▸ table (and the group's tools).
+// Master data drills down one more level: group ▸ table (and the group's tools). A table that is a
+// tab on a masters page links to that tab, its only page; the rest open at /admin/<slug>.
+function tableLink(slug: string, label: string, canView: (key: string) => boolean): NavLink[] {
+  const tab = masterTabFor(slug);
+  if (tab) return canView("masters") || canView(tab.module) ? [{ href: tab.href, label }] : [];
+  return canView("masters") ? [{ href: `/admin/${slug}`, label }] : [];
+}
+
 function mastersSubgroups(canView: (key: string) => boolean) {
   return entityGroups
     .map((g) => ({
       title: g.title,
       links: [
-        ...(canView("masters") ? g.entities.filter((e) => !e.hideInMenu).map((e) => ({ href: `/admin/${e.slug}`, label: e.title })) : []),
+        ...g.entities.filter((e) => !e.hideInMenu).flatMap((e) => tableLink(e.slug, e.title, canView)),
         ...(mastersTools[g.title] ?? []).filter((t) => canView(t.module)).map(({ href, label }) => ({ href, label })),
       ],
     }))
@@ -99,7 +108,7 @@ function useNavGroups(): NavGroup[] {
     return groups
       .map((g) => {
         const links = modules
-          .filter((m) => m.group_key === g.key && m.in_menu && m.is_active && m.path && canView(m.key))
+          .filter((m) => m.group_key === g.key && m.in_menu && m.is_active && m.path && (screenModules[m.path] ?? [m.key]).some(canView))
           .sort((a, b) => a.sort_order - b.sort_order)
           .map((m) => ({ href: m.path!, label: m.label }));
         const masters = g.key === "masters" ? mastersSubgroups(canView) : [];

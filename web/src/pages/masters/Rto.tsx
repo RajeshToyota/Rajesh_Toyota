@@ -11,15 +11,12 @@ type Breakdown = Record<string, number | string>;
 export default function Rto() {
   return (
     <MasterTabs
+      page="rto"
       title="RTO Settings"
-      module="rto_settings"
       note="Normal: the list's fixed charges + MV tax (ex-showroom × the price-list row's rate) + surcharge + the row's green tax and extra charges; a row with no MV tax rate uses the printed figure. BH = ex/(1+GST) × rate ÷ 6 + fixed charges + BH fee. Scrap: 26% of tax + surcharge off, at most ₹1,00,000. Transfer: flat."
-      tabs={[
-        { id: "calc", label: "Calculator", render: () => <Calculator /> },
-        { id: "fixed", label: "Fixed charges", entity: "rto-settings" },
-        { id: "pricing", label: "RTO price table", entity: "rto-pricing" },
-        { id: "settings", label: "Rates & caps", entity: "pricing-config" },
-      ]}
+      panels={{
+        calc: () => <Calculator />,
+      }}
     />
   );
 }

@@ -28,19 +28,12 @@ type Quote = {
 export default function Insurance() {
   return (
     <MasterTabs
+      page="insurance"
       title="Insurance Rates"
-      module="insurance_rates"
       note="Premium = OD less the highest enabled discount + TP + other charges + add-ons (% of IDV) + 18% GST. When the price list prints an insurance option, that is used instead."
-      tabs={[
-        { id: "compare", label: "Compare insurers", render: () => <Compare /> },
-        { id: "rates", label: "Variant rates", entity: "insurance-rates" },
-        { id: "od", label: "OD discounts", entity: "insurance-od-discounts" },
-        { id: "addon-rates", label: "Add-on rates", entity: "insurance-addon-rates" },
-        { id: "other", label: "Other charges", entity: "insurance-other-charges" },
-        { id: "tp", label: "TP type per variant", entity: "variant-tp-types" },
-        { id: "providers", label: "Insurers", entity: "insurance-providers" },
-        { id: "addons", label: "Add-ons", entity: "insurance-addons" },
-      ]}
+      panels={{
+        compare: () => <Compare />,
+      }}
     />
   );
 }

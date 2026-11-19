@@ -1,6 +1,6 @@
 // Build check (the Techwheels syncAdminModules idea, without writing to the database): every route's
 // module key must be seeded in app_modules by a migration, and every module with a menu path must have
-// a route. Run: node scripts/check-modules.mjs
+// a route (a ?tab= address needs a route for its page). Run: node scripts/check-modules.mjs
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
@@ -17,10 +17,14 @@ for (const block of sql.matchAll(/insert into app_modules[^;]*?values([\s\S]*?);
     modules.set(m[1], m[2] === "null" ? null : m[2].slice(1, -1));
   }
 }
+// Later migrations may move a module: update app_modules set path = '…' … where key = '…'.
+for (const m of sql.matchAll(/update app_modules set path = '([^']+)'[^;]*?where key = '([a-z0-9_]+)'/g)) {
+  if (modules.has(m[2])) modules.set(m[2], m[1]);
+}
 
 const errors = [];
 for (const k of routeKeys) if (!modules.has(k)) errors.push(`route module "${k}" is not seeded in app_modules`);
-for (const [k, path] of modules) if (path && !routePaths.has(path)) errors.push(`module "${k}" has menu path ${path} but no route`);
+for (const [k, path] of modules) if (path && !routePaths.has(path.split("?")[0])) errors.push(`module "${k}" has menu path ${path} but no route`);
 
 if (errors.length) {
   console.error(errors.join("\n"));

@@ -39,7 +39,6 @@ export const phaseRoutes: { path: string; module?: string; Component: ComponentT
   { path: "/search", module: "search_console", Component: lazy(() => import("@/pages/stockx/Search")) },
 
   // Phase 22: exchange and used cars
-  { path: "/used-cars/evaluations", module: "used_car_evaluations", Component: lazy(() => import("@/pages/used/Evaluations")) },
   { path: "/used-cars/stock", module: "used_car_stock", Component: lazy(() => import("@/pages/used/Stock")) },
   { path: "/used-cars/summary", module: "rpt_used_cars", Component: lazy(() => import("@/pages/used/Stock").then((m) => ({ default: m.UsedCarSummary }))) },
 
@@ -74,7 +73,6 @@ export const phaseRoutes: { path: string; module?: string; Component: ComponentT
 
   // Phase 29: finance
   { path: "/finance/banks", module: "finance_banks", Component: lazy(() => import("@/pages/finance/Banks")) },
-  { path: "/finance/desk", module: "finance_desk", Component: lazy(() => import("@/pages/finance/Desk")) },
   { path: "/finance/claims-payouts", module: "finance_claims", Component: lazy(() => import("@/pages/finance/ClaimsPayouts")) },
 
   // Phase 30: one screen per Ops Billing stage (the board at /ops-billing is the stage status)
