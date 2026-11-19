@@ -207,7 +207,7 @@ export default function QuoteBuilder({ onSaved }: { onSaved: () => void }) {
           </div>
         </Card>
         {options.data && (
-          <Card title="Accessories, VAS and coating">
+          <Card title="Accessories, VAS and TGLOSS">
             <div className="grid gap-1 px-3 py-2 text-sm sm:grid-cols-2">
               {options.data.accessories.map((a) => (
                 <label key={a.id} className="flex items-center gap-1">
@@ -228,7 +228,7 @@ export default function QuoteBuilder({ onSaved }: { onSaved: () => void }) {
                 <Select
                   value={f.ceramic_coating_id}
                   onChange={(v) => set({ ceramic_coating_id: v })}
-                  placeholder="No ceramic coating"
+                  placeholder="No TGLOSS"
                   options={options.data.ceramic.map((c) => ({ id: c.id, name: `${c.name} ${inr(c.price)}` }))}
                 />
               </div>

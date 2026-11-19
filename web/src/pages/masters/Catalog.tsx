@@ -5,7 +5,7 @@ import { Card, EmptyRow, Loaded, RunButton, Select, Table, Td, inr, inputCls, rp
 import { MasterTabs, catalogFileUrl, uploadCatalogFile, useCanWriteMaster, useVariants, variantLabel } from "./shared";
 
 // Cars & Variants (Techwheels' Cars, Variants, Car Colours, Variant Content, Accessories, Extended
-// Warranty and Ceramic Coating screens), on one page.
+// Warranty and TGLOSS (ceramic coating) screens), on one page.
 export default function Catalog() {
   return (
     <MasterTabs
@@ -22,7 +22,7 @@ export default function Catalog() {
         { id: "accessories", label: "Accessories", entity: "accessories" },
         { id: "accessory-check", label: "Accessories by variant", render: () => <AccessoriesByVariant /> },
         { id: "ew", label: "Extended warranty", entity: "ew-prices" },
-        { id: "ceramic", label: "Ceramic coating", entity: "ceramic-coating" },
+        { id: "ceramic", label: "TGLOSS", entity: "ceramic-coating" },
       ]}
     />
   );
