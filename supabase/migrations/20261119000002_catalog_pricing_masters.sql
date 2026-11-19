@@ -7,9 +7,10 @@
 --   - Insurance engine: IDV/OD/TP per variant, the highest enabled OD discount, add-on rates per
 --     insurer × add-on × TP type (% of IDV), other charges per TP type, GST; zero-dep and consumables
 --     are mandatory (battery protection too on EVs); insurers compared and the cheapest offered.
---   - RTO formula as fallback (and the only path for BH / Transfer / Scrap): MV tax, 12.5% surcharge,
---     green tax by engine cc, fixed charges, hypothecation when financed; BH = ex/(1+GST)×rate/6 plus
---     the BH fee; scrap rebate 26% of tax+surcharge capped at ₹1,00,000; transfer ₹1,000.
+--   - RTO for BH / Transfer / Scrap registrations, on top of the Normal formula (rto_normal, from
+--     20261118000009): the same per-list fixed charges and the price-list row's MV tax rate, green tax
+--     and extra charges; BH = ex/(1+GST)×rate/6 plus the BH fee; scrap rebate 26% of tax+surcharge
+--     capped at ₹1,00,000; transfer ₹1,000.
 --   - Ceramic coating prices per model.
 --   - Scheme categories (scheme_master) with the selection rules: one corporate, one loyalty, never
 --     exchange and scrappage together; previous-model-year amounts; save_scheme_revision() derives
@@ -31,7 +32,6 @@ insert into pricing_config (key, value, note) values
   ('margin_buffer', 5000, 'Kept back from the margin before discounts (Techwheels: 5000)'),
   ('insurance_gst_percent', 18, 'GST on the insurance premium'),
   ('idv_factor_percent', 95, 'IDV as % of ex-showroom when a variant has no IDV set'),
-  ('rto_surcharge_percent', 12.5, 'Surcharge on MV tax'),
   ('scrap_rebate_percent', 26, 'Scrap rebate: % of MV tax + surcharge'),
   ('scrap_rebate_cap', 100000, 'Scrap rebate cap'),
   ('rto_transfer_charge', 1000, 'Flat charge for a transfer registration');
@@ -49,10 +49,10 @@ $$;
 -- ===== Variants, colours, content =====
 alter table variants
   add column gst_rate_percent numeric check (gst_rate_percent between 0 and 100),
-  add column mv_tax_rate_percent numeric check (mv_tax_rate_percent between 0 and 100),
   add column engine_cc int check (engine_cc >= 0),
   add column hsn_code text check (hsn_code ~ '^[0-9]{8}$'),
   add column is_ev boolean not null default false;
+update variants v set is_ev = true from fuel_types f where f.id = v.fuel_type_id and lower(f.name) in ('ev', 'electric');
 
 create table model_colour_photos (
   id uuid primary key default gen_random_uuid(),
@@ -277,28 +277,17 @@ as $$
   order by (b->>'premium')::numeric, name;
 $$;
 
--- ===== RTO formula =====
-create table rto_settings (
-  id int primary key default 1 check (id = 1),
-  new_registration numeric not null default 0,
-  hypothecation_addition numeric not null default 0,
-  duplicate_tax_card numeric not null default 0,
-  bh_processing_fee numeric not null default 0,
-  updated_at timestamptz not null default now()
-);
-insert into rto_settings (id) values (1);
+-- ===== RTO: BH / Transfer / Scrap on top of the Normal formula =====
+-- The fixed charges per list and the per-row MV tax rate / green tax / extra charges come from
+-- 20261118000009 (rto_settings, price_list, rto_normal). This adds the BH processing fee.
+alter table rto_settings add column bh_processing_fee numeric not null default 0 check (bh_processing_fee >= 0);
 
-create table green_tax_slabs (
-  id uuid primary key default gen_random_uuid(),
-  min_cc int not null check (min_cc >= 0),
-  max_cc int not null,
-  amount numeric not null check (amount >= 0),
-  check (max_cc >= min_cc)
-);
-
--- RTO for one registration type, Techwheels' computeRtoOptions/computeRtoTotal. Null when the variant
--- has no MV tax rate (not configured), except Transfer which is flat.
-create or replace function rto_calc(p_variant_id uuid, p_ex_showroom numeric, p_type text default 'NORMAL', p_financed boolean default false)
+-- RTO for one registration type (Techwheels' computeRtoOptions). Without the row's inputs given, the
+-- variant's current price-list row for that list supplies them. Null when there is no MV tax rate
+-- (the printed figure applies), except Transfer which is flat.
+create or replace function rto_calc(p_variant_id uuid, p_ex_showroom numeric, p_type text default 'NORMAL',
+                                    p_list_type text default 'private', p_mv_tax_rate numeric default null,
+                                    p_green_tax numeric default null, p_extra_charges numeric default null)
 returns jsonb
 language plpgsql
 stable
@@ -307,14 +296,18 @@ set search_path = public
 as $$
 declare
   v_type text := upper(coalesce(p_type, 'NORMAL'));
+  v_list text := coalesce(p_list_type, 'private');
   v variants%rowtype;
   s rto_settings%rowtype;
+  pl price_list%rowtype;
+  v_rate numeric := p_mv_tax_rate;
+  v_green numeric := p_green_tax;
+  v_extra numeric := p_extra_charges;
+  v_normal jsonb;
   v_mv numeric;
-  v_sur numeric;
-  v_green numeric;
-  v_rebate numeric := 0;
-  v_bh_fee numeric := 0;
   v_fixed numeric;
+  v_rebate numeric;
+  v_bh_fee numeric;
 begin
   if v_type not in ('NORMAL', 'BH', 'SCRAP', 'TRANSFER') then
     raise exception 'Unknown registration type %', p_type;
@@ -322,31 +315,36 @@ begin
   if v_type = 'TRANSFER' then
     return jsonb_build_object('reg_type', 'TRANSFER', 'total', pricing_setting('rto_transfer_charge'));
   end if;
-  select * into v from variants where id = p_variant_id;
-  select * into s from rto_settings where id = 1;
-  if v.mv_tax_rate_percent is null and not v.is_ev then
+  if v_rate is null then
+    select * into pl from price_list
+    where variant_id = p_variant_id and list_type = v_list
+      and effective_from <= current_date and (effective_to is null or effective_to >= current_date)
+    order by effective_from desc limit 1;
+    v_rate := pl.mv_tax_rate;
+    v_green := coalesce(v_green, pl.green_tax);
+    v_extra := coalesce(v_extra, pl.extra_rto_charges);
+  end if;
+  v_normal := rto_normal(p_variant_id, v_list, p_ex_showroom, v_rate, v_green, v_extra);
+  if v_normal is null then
     return null;
   end if;
-  v_fixed := s.new_registration + s.duplicate_tax_card + case when p_financed then s.hypothecation_addition else 0 end;
-  v_green := case when v.is_ev then 0 else coalesce((select amount from green_tax_slabs where min_cc <= coalesce(v.engine_cc, 0) and max_cc >= coalesce(v.engine_cc, 0) limit 1), 0) end;
-
-  if v_type = 'BH' then
-    v_mv := case when v.is_ev then 0
-                 else round((p_ex_showroom / (1 + coalesce(v.gst_rate_percent, 0) / 100)) * v.mv_tax_rate_percent / 100 / 6) end;
-    v_sur := 0;
-    v_bh_fee := case when v.is_ev then 0 else s.bh_processing_fee end;
-  else
-    v_mv := case when v.is_ev then 0 else round(p_ex_showroom * v.mv_tax_rate_percent / 100) end;
-    v_sur := round(v_mv * pricing_setting('rto_surcharge_percent') / 100);
-    if v_type = 'SCRAP' then
-      v_rebate := least(round((v_mv + v_sur) * pricing_setting('scrap_rebate_percent') / 100), pricing_setting('scrap_rebate_cap'));
-    end if;
+  if v_type = 'NORMAL' then
+    return v_normal || jsonb_build_object('reg_type', 'NORMAL');
   end if;
-  return jsonb_build_object(
-    'reg_type', v_type, 'new_registration', s.new_registration, 'duplicate_tax_card', s.duplicate_tax_card,
-    'hypothecation_addition', case when p_financed then s.hypothecation_addition else 0 end,
-    'mv_tax', v_mv, 'surcharge', v_sur, 'green_tax', v_green, 'rebate_waiver', v_rebate, 'bh_processing_fee', v_bh_fee,
-    'total', v_fixed + v_mv + v_sur + v_green - v_rebate + v_bh_fee);
+  if v_type = 'SCRAP' then
+    v_rebate := least(round(((v_normal->>'mv_tax')::numeric + (v_normal->>'surcharge_mv_tax')::numeric) * pricing_setting('scrap_rebate_percent') / 100),
+                      pricing_setting('scrap_rebate_cap'));
+    return v_normal || jsonb_build_object('reg_type', 'SCRAP', 'rebate_waiver', v_rebate, 'total', (v_normal->>'total')::numeric - v_rebate);
+  end if;
+  -- BH series: two years' worth of the yearly tax on the pre-GST price (rate ÷ 6 of the one-time rate),
+  -- no surcharge, plus the BH processing fee.
+  select * into v from variants where id = p_variant_id;
+  select * into s from rto_settings where list_type = v_list;
+  v_fixed := (v_normal->>'fixed_charges')::numeric;
+  v_mv := case when v.is_ev then 0 else round((p_ex_showroom / (1 + coalesce(v.gst_rate_percent, 0) / 100)) * v_rate / 100 / 6) end;
+  v_bh_fee := case when v.is_ev then 0 else s.bh_processing_fee end;
+  return v_normal || jsonb_build_object('reg_type', 'BH', 'mv_tax', v_mv, 'surcharge_mv_tax', 0, 'bh_processing_fee', v_bh_fee,
+    'total', v_fixed + v_mv + (v_normal->>'green_tax')::numeric + (v_normal->>'extra_charges')::numeric + v_bh_fee);
 end;
 $$;
 
@@ -542,7 +540,7 @@ declare t text;
 begin
   foreach t in array array['pricing_config', 'model_colour_photos', 'variant_content', 'insurance_tp_types', 'variant_tp_types',
                            'insurance_rates', 'insurance_od_discounts', 'insurance_addon_rates', 'insurance_other_charges',
-                           'rto_settings', 'green_tax_slabs', 'ceramic_coating_prices', 'scheme_master', 'discount_rules_variant'] loop
+                           'ceramic_coating_prices', 'scheme_master', 'discount_rules_variant'] loop
     execute format('alter table %I enable row level security', t);
     execute format('create policy %I_select on %I for select to authenticated using (true)', t, t);
     execute format('create policy %I_write on %I for all to authenticated using (is_master_data_admin() or has_right(''catalog'', ''edit'')) with check (is_master_data_admin() or has_right(''catalog'', ''edit''))', t, t);
@@ -553,12 +551,12 @@ drop policy discount_rules_variant_write on discount_rules_variant;
 
 -- ===== Quote / booking selections that calculate_price reads beyond the columns =====
 -- Keys: model_year ('current' | 'previous'), insurance_provider_id, insurance_tp_type,
--- rto_type ('NORMAL' | 'BH' | 'SCRAP' | 'TRANSFER'), is_financed, ceramic_coating_id,
+-- rto_type ('NORMAL' | 'BH' | 'SCRAP' | 'TRANSFER'), ceramic_coating_id,
 -- coupon_amount, apply_mr_discount.
 alter table quotes add column pricing_extras jsonb not null default '{}' check (jsonb_typeof(pricing_extras) = 'object');
 alter table bookings add column pricing_extras jsonb not null default '{}' check (jsonb_typeof(pricing_extras) = 'object');
 
--- ===== Pricing engine (latest definitions from 20261027000001, extended) =====
+-- ===== Pricing engine (latest definitions, extended) =====
 
 create or replace function calculate_price(selections jsonb)
 returns jsonb
@@ -590,7 +588,6 @@ declare
   v_provider_id uuid := nullif(selections->>'insurance_provider_id','')::uuid;
   v_tp_type text := nullif(selections->>'insurance_tp_type','');
   v_rto_type text := upper(coalesce(nullif(selections->>'rto_type',''), 'NORMAL'));
-  v_financed boolean := coalesce((selections->>'is_financed')::boolean, false);
   v_ceramic_id uuid := nullif(selections->>'ceramic_coating_id','')::uuid;
   v_ceramic_amount numeric := 0;
   v_coupon numeric := coalesce(nullif(selections->>'coupon_amount','')::numeric, 0);
@@ -604,7 +601,6 @@ declare
   v_rto jsonb;
   v_ins jsonb;
   v_pl price_list%rowtype;
-  v_paint_category text;
   v_fastag_amount numeric := 0;
   v_ew_amount numeric := 0;
 
@@ -642,38 +638,22 @@ begin
     raise exception 'Unknown variant_id: %', v_variant_id;
   end if;
 
-  -- 1. Price-list row, as of the pricing date. A row for this exact colour wins; otherwise the
-  -- row for the colour's paint category (standard / pearl white / dual tone) on the chosen list.
-  select coalesce(paint_category, 'standard') into v_paint_category from colors where id = v_color_id;
-
+  -- 1. Price-list row, as of the pricing date: one row per variant / list / state. Every colour
+  -- of the variant is sold at that price unless Variant <-> Color gives the colour an extra cost.
   select * into v_pl
   from price_list
   where variant_id = v_variant_id and state = v_state and list_type = v_list_type
-    and (color_id = v_color_id or (color_id is null and paint_category = v_paint_category))
     and effective_from <= v_as_of_date and (effective_to is null or effective_to >= v_as_of_date)
-  order by (color_id is not null) desc, effective_from desc
+  order by effective_from desc
   limit 1;
-
-  -- A paint with no dedicated row on this list is sold at the standard price.
-  if v_pl.id is null and v_paint_category <> 'standard' then
-    select * into v_pl
-    from price_list
-    where variant_id = v_variant_id and state = v_state and list_type = v_list_type
-      and color_id is null and paint_category = 'standard'
-      and effective_from <= v_as_of_date and (effective_to is null or effective_to >= v_as_of_date)
-    order by effective_from desc
-    limit 1;
-  end if;
 
   v_ex_showroom := v_pl.ex_showroom_price;
   if v_ex_showroom is null then
     raise exception 'No active % price_list entry for variant % / color % / state % as of %', v_list_type, v_variant_id, v_color_id, v_state, v_as_of_date;
   end if;
 
-  -- Colour upcharges only apply to legacy per-colour rows; paint-category rows already price it in.
-  if v_pl.color_id is not null then
-    select coalesce(extra_cost, 0) into v_color_extra from variant_colors where variant_id = v_variant_id and color_id = v_color_id;
-  end if;
+  -- Colour price difference (e.g. Pearl White, dual tone), from Variant <-> Color.
+  select extra_cost into v_color_extra from variant_colors where variant_id = v_variant_id and color_id = v_color_id;
   v_color_extra := coalesce(v_color_extra, 0);
 
   v_line_items := v_line_items || jsonb_build_array(jsonb_build_object('type','base_price','label','Ex-Showroom Price','amount',v_ex_showroom));
@@ -831,22 +811,31 @@ begin
   v_tcs_amount := round((v_ex_showroom + v_color_extra - v_scheme_discount - v_dealer_discount - v_coupon - v_mr) * v_tcs_rate / 100, 2);
   v_line_items := v_line_items || jsonb_build_array(jsonb_build_object('type','tax','label', format('TCS @ %s%%', v_tcs_rate), 'amount', v_tcs_amount));
 
-  -- 5. RTO: the dealer list's Road Tax & Registration when printed, else rto_pricing (variant-level
+  -- 5. RTO (Normal registration), worked out as Techwheels does (rto_normal) on the ex-showroom
+  -- price including the colour difference. A row with no MV tax rate (or a list with no RTO
+  -- settings) uses the list's printed Road Tax & Registration, then rto_pricing (variant-level
   -- pricing takes precedence over model-level). Then the scrap certificate.
   if v_rto_type not in ('NORMAL', 'BH', 'SCRAP', 'TRANSFER') then
     raise exception 'Unknown registration type %', v_rto_type;
   end if;
   if v_rto_type <> 'NORMAL' then
     -- BH series, transfer and scrap registrations are priced by the RTO formula (Phase 24).
-    v_rto := rto_calc(v_variant_id, v_ex_showroom + v_color_extra, v_rto_type, v_financed);
+    v_rto := rto_calc(v_variant_id, v_ex_showroom + v_color_extra, v_rto_type, v_list_type, v_pl.mv_tax_rate, v_pl.green_tax, v_pl.extra_rto_charges);
     v_rto_amount := (v_rto->>'total')::numeric;
     if v_rto_amount is null then
-      raise exception 'Set the MV tax rate on this variant to price a % registration', v_rto_type;
+      raise exception 'Set the MV tax rate on this price-list row to price a % registration', v_rto_type;
     end if;
   else
-    v_rto_amount := v_pl.road_tax_registration;
+    v_rto_amount := (rto_normal(v_variant_id, v_list_type, v_ex_showroom + v_color_extra, v_pl.mv_tax_rate, v_pl.green_tax, v_pl.extra_rto_charges)->>'total')::numeric;
+    if v_rto_amount is null then
+      v_rto_amount := v_pl.road_tax_registration;
+    end if;
 
-    if v_rto_amount is null and v_rto_category_id is not null then
+    if v_rto_amount is null then
+      if v_rto_category_id is null then
+        raise exception 'rto_category_id is required when the price list has no Road Tax & Registration amount';
+      end if;
+
       select amount into v_rto_amount
       from rto_pricing
       where rto_category_id = v_rto_category_id and state = v_state
@@ -856,19 +845,9 @@ begin
       limit 1;
     end if;
 
-    -- Neither the list nor rto_pricing: the RTO formula, when the variant has its tax rate.
     if v_rto_amount is null then
-      v_rto := rto_calc(v_variant_id, v_ex_showroom + v_color_extra, 'NORMAL', v_financed);
-      v_rto_amount := (v_rto->>'total')::numeric;
+      raise exception 'No active rto_pricing entry for category % / state % / variant % as of %', v_rto_category_id, v_state, v_variant_id, v_as_of_date;
     end if;
-
-    if v_rto_amount is null and v_rto_category_id is null then
-      raise exception 'rto_category_id is required when the price list has no Road Tax & Registration amount';
-    end if;
-  end if;
-
-  if v_rto_amount is null then
-    raise exception 'No active rto_pricing entry for category % / state % / variant % as of %', v_rto_category_id, v_state, v_variant_id, v_as_of_date;
   end if;
 
   v_line_items := v_line_items || jsonb_build_array(jsonb_build_object('type','rto','label', case when v_rto_type = 'NORMAL' then 'RTO & Registration' else format('RTO & Registration (%s)', v_rto_type) end,'amount',v_rto_amount));
@@ -1007,7 +986,7 @@ begin
     'rto_amount', v_rto_amount,
     'scrap_amount', v_scrap_amount,
     'list_type', v_list_type,
-    'paint_category', v_pl.paint_category,
+    'mv_tax_rate', v_pl.mv_tax_rate,
     'insurance_option', v_insurance_option,
     'insurance_amount', v_insurance_amount,
     'fastag_amount', v_fastag_amount,
@@ -1347,7 +1326,7 @@ create or replace trigger trg_bookings_00_from_final_quote
 revoke execute on function pricing_setting(text) from public, anon;
 revoke execute on function insurance_premium(uuid, uuid, uuid[], text, numeric, date) from public, anon;
 revoke execute on function insurance_quotes(uuid, uuid[], text) from public, anon;
-revoke execute on function rto_calc(uuid, numeric, text, boolean) from public, anon;
+revoke execute on function rto_calc(uuid, numeric, text, text, numeric, numeric, numeric) from public, anon;
 revoke execute on function save_scheme_revision(jsonb) from public, anon;
 revoke execute on function upsert_discount_rules(jsonb) from public, anon;
 revoke execute on function accessories_for_variant(uuid) from public, anon;
@@ -1355,7 +1334,7 @@ revoke execute on function ew_options_for_variant(uuid) from public, anon;
 grant execute on function pricing_setting(text) to authenticated;
 grant execute on function insurance_premium(uuid, uuid, uuid[], text, numeric, date) to authenticated;
 grant execute on function insurance_quotes(uuid, uuid[], text) to authenticated;
-grant execute on function rto_calc(uuid, numeric, text, boolean) to authenticated;
+grant execute on function rto_calc(uuid, numeric, text, text, numeric, numeric, numeric) to authenticated;
 grant execute on function save_scheme_revision(jsonb) to authenticated;
 grant execute on function upsert_discount_rules(jsonb) to authenticated;
 grant execute on function accessories_for_variant(uuid) to authenticated;

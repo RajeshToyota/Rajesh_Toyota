@@ -60,9 +60,11 @@ union all select '10000000-0000-0000-0000-000000000002', id, '1+3', 0.3 from ins
 union all select '10000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000001', '1+3', 0.1
 union all select '10000000-0000-0000-0000-000000000003', id, '1+3', 0.2 from insurance_addons where name = 'Zero Depreciation';
 
-update variants set mv_tax_rate_percent = 10, gst_rate_percent = 28, engine_cc = 1490 where id = (select id from t_ids where k = 'v');
-update rto_settings set new_registration = 600, duplicate_tax_card = 200, hypothecation_addition = 1500, bh_processing_fee = 2000;
-insert into green_tax_slabs (min_cc, max_cc, amount) values (0, 1499, 1000), (1500, 9999, 2000);
+update variants set gst_rate_percent = 28, engine_cc = 1490 where id = (select id from t_ids where k = 'v');
+-- Private list: fixed charges 4,200 (seeded by 20261118000009), BH fee 2,000; the row: MV tax 10%, green tax 1,000.
+update rto_settings set bh_processing_fee = 2000 where list_type = 'private';
+update price_list set mv_tax_rate = 10, green_tax = 1000, extra_rto_charges = 0
+where variant_id = (select id from t_ids where k = 'v') and list_type = 'private';
 insert into ceramic_coating_prices (id, model_id, price) select '30000000-0000-0000-0000-000000000001', id, 25000 from t_ids where k = 'm';
 -- Dealer cost: margin before discounts = 19,99,000 - 19,50,000 = 49,000.
 update price_list set dealer_purchase_price = 1950000
@@ -104,32 +106,37 @@ declare
   r jsonb;
   b jsonb;
 begin
-  -- Normal: MV 10% of 19,99,000 = 1,99,900; surcharge 24,988 (12.5%, rounded); green 1,000 (1490 cc);
-  -- fixed 600 + 200 = 800 → 2,26,688; financed adds 1,500.
-  r := rto_calc((select id from t_ids where k = 'v'), 1999000, 'NORMAL', false);
-  if (r->>'mv_tax')::numeric <> 199900 or (r->>'surcharge')::numeric <> 24988 or (r->>'total')::numeric <> 226688 then
+  -- Normal: MV 10% of 19,99,000 = 1,99,900; surcharge 24,988 (12.5%, rounded); green 1,000;
+  -- fixed 4,200 → 2,30,088.
+  r := rto_calc((select id from t_ids where k = 'v'), 1999000, 'NORMAL', 'private', 10, 1000, 0);
+  if (r->>'mv_tax')::numeric <> 199900 or (r->>'surcharge_mv_tax')::numeric <> 24988 or (r->>'total')::numeric <> 230088 then
     raise exception 'normal RTO wrong: %', r;
   end if;
-  if (rto_calc((select id from t_ids where k = 'v'), 1999000, 'NORMAL', true)->>'total')::numeric <> 228188 then
-    raise exception 'hypothecation should add when financed';
+  -- Without the row's inputs, the variant's current price-list row supplies them.
+  if (rto_calc((select id from t_ids where k = 'v'), 1999000)->>'total')::numeric <> 230088 then
+    raise exception 'price-list inputs: %', rto_calc((select id from t_ids where k = 'v'), 1999000);
   end if;
-  -- BH: 19,99,000 / 1.28 × 10% / 6 = 26,029 (rounded) + green 1,000 + fixed 800 + BH fee 2,000 = 29,829.
-  r := rto_calc((select id from t_ids where k = 'v'), 1999000, 'BH', false);
-  if (r->>'mv_tax')::numeric <> 26029 or (r->>'total')::numeric <> 29829 then raise exception 'BH RTO wrong: %', r; end if;
+  -- BH: 19,99,000 / 1.28 × 10% / 6 = 26,029 (rounded) + green 1,000 + fixed 4,200 + BH fee 2,000 = 33,229.
+  r := rto_calc((select id from t_ids where k = 'v'), 1999000, 'BH', 'private', 10, 1000, 0);
+  if (r->>'mv_tax')::numeric <> 26029 or (r->>'total')::numeric <> 33229 then raise exception 'BH RTO wrong: %', r; end if;
   -- Scrap: rebate 26% of (1,99,900 + 24,988) = 58,471.
-  r := rto_calc((select id from t_ids where k = 'v'), 1999000, 'SCRAP', false);
-  if (r->>'rebate_waiver')::numeric <> 58471 or (r->>'total')::numeric <> 226688 - 58471 then raise exception 'scrap RTO wrong: %', r; end if;
+  r := rto_calc((select id from t_ids where k = 'v'), 1999000, 'SCRAP', 'private', 10, 1000, 0);
+  if (r->>'rebate_waiver')::numeric <> 58471 or (r->>'total')::numeric <> 230088 - 58471 then raise exception 'scrap RTO wrong: %', r; end if;
   -- The cap: a ₹1 crore car.
-  if (rto_calc((select id from t_ids where k = 'v'), 10000000, 'SCRAP', false)->>'rebate_waiver')::numeric <> 100000 then
+  if (rto_calc((select id from t_ids where k = 'v'), 10000000, 'SCRAP', 'private', 10, 1000, 0)->>'rebate_waiver')::numeric <> 100000 then
     raise exception 'scrap rebate should be capped';
   end if;
-  if (rto_calc((select id from t_ids where k = 'v'), 1999000, 'TRANSFER', false)->>'total')::numeric <> 1000 then
+  if (rto_calc((select id from t_ids where k = 'v'), 1999000, 'TRANSFER')->>'total')::numeric <> 1000 then
     raise exception 'transfer is flat';
   end if;
+  if rto_calc((select id from t_ids where k = 'v'), 1999000, 'BH', 'private', null, null, null) is null then
+    raise exception 'the row''s MV tax rate is used when none is given';
+  end if;
   b := calculate_price(pg_temp.sel('{"rto_type": "BH"}'));
-  if (b->>'rto_amount')::numeric <> 29829 or b->>'rto_type' <> 'BH' then raise exception 'BH on the quote: %', b->>'rto_amount'; end if;
+  if (b->>'rto_amount')::numeric <> 33229 or b->>'rto_type' <> 'BH' then raise exception 'BH on the quote: %', b->>'rto_amount'; end if;
+  -- Normal keeps 20261118000009's path: the formula on the row.
   b := calculate_price(pg_temp.sel('{}'));
-  if (b->>'rto_amount')::numeric <> 231588 then raise exception 'normal stays on the price list: %', b->>'rto_amount'; end if;
+  if (b->>'rto_amount')::numeric <> 230088 then raise exception 'normal RTO on the quote: %', b->>'rto_amount'; end if;
 end $$;
 
 -- ===== Ceramic, coupon, MR, margin floor =====

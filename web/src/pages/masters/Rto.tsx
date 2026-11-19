@@ -13,11 +13,10 @@ export default function Rto() {
     <MasterTabs
       title="RTO Settings"
       module="rto_settings"
-      note="Formula: MV tax = ex-showroom × the variant's rate, + 12.5% surcharge, + green tax by engine cc, + fixed charges (+ hypothecation when financed). BH = ex/(1+GST) × rate ÷ 6 + BH fee. Scrap: 26% of tax + surcharge off, at most ₹1,00,000. Transfer: ₹1,000."
+      note="Normal: the list's fixed charges + MV tax (ex-showroom × the price-list row's rate) + surcharge + the row's green tax and extra charges; a row with no MV tax rate uses the printed figure. BH = ex/(1+GST) × rate ÷ 6 + fixed charges + BH fee. Scrap: 26% of tax + surcharge off, at most ₹1,00,000. Transfer: flat."
       tabs={[
         { id: "calc", label: "Calculator", render: () => <Calculator /> },
         { id: "fixed", label: "Fixed charges", entity: "rto-settings" },
-        { id: "green", label: "Green tax", entity: "green-tax-slabs" },
         { id: "pricing", label: "RTO price table", entity: "rto-pricing" },
         { id: "settings", label: "Rates & caps", entity: "pricing-config" },
       ]}
@@ -26,12 +25,11 @@ export default function Rto() {
 }
 
 const LABELS: Record<string, string> = {
-  new_registration: "New registration",
-  duplicate_tax_card: "Tax card",
-  hypothecation_addition: "Hypothecation",
+  fixed_charges: "Fixed charges",
   mv_tax: "MV tax",
-  surcharge: "Surcharge",
+  surcharge_mv_tax: "Surcharge",
   green_tax: "Green tax",
+  extra_charges: "Extra charges",
   rebate_waiver: "Scrap rebate (less)",
   bh_processing_fee: "BH processing fee",
   total: "Total",
@@ -41,24 +39,22 @@ function Calculator() {
   const variants = useVariants();
   const [variantId, setVariantId] = useState("");
   const [ex, setEx] = useState("");
-  const [financed, setFinanced] = useState(false);
+  const [listType, setListType] = useState("private");
   const rows = useQuery(async () => {
     if (!variantId || !Number(ex)) return null;
     const types = ["NORMAL", "BH", "SCRAP", "TRANSFER"];
     const out = await Promise.all(
-      types.map((t) => rpc<Breakdown | null>("rto_calc", { p_variant_id: variantId, p_ex_showroom: Number(ex), p_type: t, p_financed: financed }, { refresh: false })),
+      types.map((t) => rpc<Breakdown | null>("rto_calc", { p_variant_id: variantId, p_ex_showroom: Number(ex), p_type: t, p_list_type: listType }, { refresh: false })),
     );
     return types.map((t, i) => ({ type: t, b: out[i] }));
-  }, [variantId, ex, financed]);
+  }, [variantId, ex, listType]);
 
   return (
     <Card title="Work out the RTO">
       <div className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
         <Select value={variantId} onChange={setVariantId} placeholder="Variant" options={(variants.data ?? []).map((v) => ({ id: v.id, name: variantLabel(v) }))} />
         <input className={`${inputCls} w-36`} type="number" placeholder="Ex-showroom" value={ex} onChange={(e) => setEx(e.target.value)} />
-        <label className="flex items-center gap-1">
-          <input type="checkbox" checked={financed} onChange={(e) => setFinanced(e.target.checked)} /> Financed
-        </label>
+        <Select value={listType} onChange={setListType} options={[{ id: "private", name: "Private" }, { id: "commercial", name: "Commercial" }, { id: "csd", name: "CSD" }]} />
       </div>
       <Loaded q={{ ...rows, data: rows.data ?? (rows.loading ? null : []) }}>
         {(list) =>
@@ -71,7 +67,7 @@ function Calculator() {
                   <Td muted>{LABELS[k]}</Td>
                   {list.map((r) => (
                     <Td key={r.type} right className={k === "total" ? "font-semibold" : ""}>
-                      {r.b ? (r.b[k] !== undefined ? inr(r.b[k]) : "—") : k === "total" ? "Set the MV tax rate on the variant" : ""}
+                      {r.b ? (r.b[k] !== undefined ? inr(r.b[k]) : "—") : k === "total" ? "No MV tax rate on the price list" : ""}
                     </Td>
                   ))}
                 </tr>

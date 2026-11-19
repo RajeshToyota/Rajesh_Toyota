@@ -65,7 +65,6 @@ export default function QuoteBuilder({ onSaved }: { onSaved: () => void }) {
     include_extended_warranty: false,
     quantity: 1,
     preferred_financier_id: "",
-    is_financed: false,
     exchange_interest: false,
     model_year: "current",
     ceramic_coating_id: "",
@@ -118,7 +117,6 @@ export default function QuoteBuilder({ onSaved }: { onSaved: () => void }) {
       pricing_extras: {
         model_year: f.model_year,
         rto_type: f.rto_type,
-        is_financed: f.is_financed,
         ...(providerId ? { insurance_provider_id: providerId } : {}),
         ...(f.ceramic_coating_id ? { ceramic_coating_id: f.ceramic_coating_id } : {}),
         ...(f.coupon_amount > 0 ? { coupon_amount: f.coupon_amount } : {}),
@@ -187,9 +185,6 @@ export default function QuoteBuilder({ onSaved }: { onSaved: () => void }) {
                 ...(options.data?.insurers ?? []).map((i) => ({ id: `insurer:${i.provider_id}`, name: `${i.provider} ${inr(i.premium)}${i.is_cheapest ? " (cheapest)" : ""}` })),
               ]}
             />
-            <label className="flex items-center gap-1 text-sm">
-              <input type="checkbox" checked={f.is_financed} onChange={(e) => set({ is_financed: e.target.checked })} /> Financed
-            </label>
             <Select value={f.preferred_financier_id} onChange={(v) => set({ preferred_financier_id: v })} options={m.financiers} placeholder="Preferred financier" />
             <label className="flex items-center gap-1 text-sm">
               <input type="checkbox" checked={f.include_extended_warranty} onChange={(e) => set({ include_extended_warranty: e.target.checked })} /> 5th-year warranty

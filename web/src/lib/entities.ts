@@ -80,7 +80,6 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
           { key: "old_suffix_code", label: "Old Suffix Code", type: "text", hideInTable: true },
           { key: "name", label: "Name", type: "text", required: true },
           { key: "gst_rate_percent", label: "GST %", type: "number", step: "0.01", hideInTable: true },
-          { key: "mv_tax_rate_percent", label: "MV Tax Rate %", type: "number", step: "0.01", hideInTable: true },
           { key: "engine_cc", label: "Engine cc", type: "number", hideInTable: true },
           { key: "hsn_code", label: "HSN Code (8 digits)", type: "text", hideInTable: true },
           { key: "is_ev", label: "Electric (EV)", type: "boolean", hideInTable: true },
@@ -253,6 +252,7 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
           { key: "service_charge", label: "Service Charge", type: "number", step: "0.01", required: true },
           { key: "other_charges", label: "Other Charges", type: "number", step: "0.01", required: true },
           { key: "surcharge_percent", label: "Surcharge on MV Tax (%)", type: "number", step: "0.001", required: true },
+          { key: "bh_processing_fee", label: "BH processing fee", type: "number", step: "0.01" },
           { key: "notes", label: "Notes", type: "text", hideInTable: true },
         ],
       },
@@ -473,29 +473,6 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
         fields: [
           { key: "variant_id", label: "Variant", type: "foreign_key", foreignTable: "variants", foreignLabelKey: "name", required: true },
           { key: "tp_type_code", label: "TP type", type: "select", required: true, options: [{ value: "1+3", label: "1 yr OD + 3 yr TP" }, { value: "3+3", label: "3 yr OD + 3 yr TP" }] },
-        ],
-      },
-      {
-        slug: "rto-settings",
-        table: "rto_settings",
-        title: "RTO Fixed Charges",
-        description: "Used by the RTO formula (BH, transfer, scrap, and when the price list prints no road tax).",
-        fields: [
-          { key: "new_registration", label: "New registration", type: "number", step: "0.01", required: true },
-          { key: "duplicate_tax_card", label: "Tax card", type: "number", step: "0.01", required: true },
-          { key: "hypothecation_addition", label: "Hypothecation (financed)", type: "number", step: "0.01", required: true },
-          { key: "bh_processing_fee", label: "BH processing fee", type: "number", step: "0.01", required: true },
-        ],
-      },
-      {
-        slug: "green-tax-slabs",
-        table: "green_tax_slabs",
-        title: "Green Tax Slabs",
-        orderBy: "min_cc",
-        fields: [
-          { key: "min_cc", label: "From cc", type: "number", required: true },
-          { key: "max_cc", label: "To cc", type: "number", required: true },
-          { key: "amount", label: "Amount", type: "number", step: "0.01", required: true },
         ],
       },
       {

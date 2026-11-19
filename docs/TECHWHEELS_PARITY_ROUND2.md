@@ -88,13 +88,13 @@ The TKM price list (`price_list`) stays the authority for ex-showroom, road tax 
 - `calculate_price` uses it when the price list's `insurance_options` is empty or the user picks a provider.
 
 **RTO**
-- New `rto_settings` (new registration, hypothecation addition, duplicate tax card, BH processing fee, scrap-certificate fee) and `green_tax_slabs` (cc range).
-- New `rto_calc(variant, type NORMAL|BH|TRANSFER|SCRAP)`:
-  - MV tax = ex × rate, plus a 12.5 % surcharge;
-  - BH = (ex / (1 + gst)) × rate / 6, plus the BH fee;
-  - SCRAP = normal less the rebate;
+- Built on main's `20261118000009` (per-list `rto_settings` fixed charges, the price-list row's MV tax rate, green tax and extra charges, `rto_normal`). Phase 24 adds `rto_settings.bh_processing_fee`.
+- New `rto_calc(variant, ex, type NORMAL|BH|TRANSFER|SCRAP, list)`:
+  - NORMAL = `rto_normal`;
+  - BH = (ex / (1 + gst)) × rate / 6, plus the fixed charges, green tax and the BH fee;
+  - SCRAP = normal less the rebate (26 % of tax + surcharge, capped);
   - TRANSFER = flat amount.
-- This is a fallback when `price_list.road_tax_registration` is null, and the only path for BH and Transfer.
+- `calculate_price` keeps main's Normal path (formula, then the printed figure, then `rto_pricing`) and uses `rto_calc` for BH, Scrap and Transfer.
 
 **Extended warranty, ceramic coating, schemes, coupon cap**
 - Extended warranty: keep `ew_prices` and add a per-variant year-1/2/3 view for quoting.
