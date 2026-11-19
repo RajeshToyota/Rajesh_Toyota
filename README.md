@@ -4,10 +4,11 @@ Multi-outlet automobile dealership CRM: Expo mobile app (Sales Consultants), Nex
 dashboard, and a Supabase (Postgres + Auth + RLS) backend that is the single source of truth for
 both. See `supabase/migrations/` for the schema, RLS policies, and seed data (Phase 0).
 
-Supabase project ref: `dvcjynxvqpcydcphdcst` (`us-east-1`). An earlier project in `ap-southeast-1`
-(`qmfuooozyjuwqwzehtns`) was migrated away from due to cross-region latency against Vercel's
-default `iad1` function region — see migration history for the full schema if that project is
-ever revisited.
+Supabase project ref: `zayuhrajnaenwuiutcpq` (`ap-south-1`, Mumbai), since 2026-11-18. The web app is a
+static Vite build whose browsers query Supabase directly, so the database sits next to the staff in
+India. The previous project, `dvcjynxvqpcydcphdcst` (`us-east-1`), was kept unchanged as a fallback;
+it dated from the Next.js dashboard, whose server code ran in Vercel's `iad1`. An earlier
+`ap-southeast-1` project (`qmfuooozyjuwqwzehtns`) predates both.
 
 ## Layout
 

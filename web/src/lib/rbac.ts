@@ -44,7 +44,7 @@ const empty: RbacState = {
 // The signed-in employee's module rights and the menu, loaded once at sign-in (Techwheels' RBAC store).
 export const useRbacStore = create<RbacState>(() => empty);
 
-export async function loadRbac(roleRank: number | null) {
+export async function loadRbac() {
   const [rights, groups, modules] = await Promise.all([
     supabase.rpc("my_rights"),
     supabase.from("menu_groups").select("key, title, sort_order").order("sort_order"),
@@ -52,17 +52,21 @@ export async function loadRbac(roleRank: number | null) {
   ]);
   if (rights.error || groups.error || modules.error) {
     console.warn("Module rights not available; showing every screen.", rights.error ?? groups.error ?? modules.error);
-    useRbacStore.setState({ ...empty, loaded: true, available: false, isAdmin: roleRank === 0 });
+    useRbacStore.setState({ ...empty, available: false });
     return;
   }
   useRbacStore.setState({
-    loaded: true,
     available: true,
-    isAdmin: roleRank === 0,
     rights: new Set((rights.data as { module_key: string; right: string }[]).map((r) => `${r.module_key}:${r.right}`)),
     groups: groups.data as MenuGroup[],
     modules: modules.data as AppModule[],
   });
+}
+
+// Applied once the employee row has loaded (it arrives alongside the rights, not before them). Only
+// then are the rights marked loaded, so an admin never sees a "no access" flash in between.
+export function setRbacAdmin(roleRank: number | null) {
+  useRbacStore.setState({ isAdmin: roleRank === 0, loaded: true });
 }
 
 export async function startPreview(employeeId: string, name: string) {
