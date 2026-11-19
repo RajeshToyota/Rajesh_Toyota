@@ -6,7 +6,9 @@ import type { EntityConfig, FieldConfig } from "@/lib/entities";
 import { parseCsv } from "@/lib/csv";
 
 type Row = Record<string, unknown>;
-type OptionMap = Record<string, { value: string; label: string }[]>;
+// `active` is the referenced row's is_active, when that table has one (variants, interior colours…).
+type OptionMap = Record<string, { value: string; label: string; active?: boolean }[]>;
+type ActiveFilter = "all" | "yes" | "no";
 
 type SortState = { key: string; dir: "asc" | "desc" } | null;
 
@@ -63,6 +65,17 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
   const [importing, setImporting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  // Active filter, remembered per page in this browser.
+  const activeKey = `masters-active-filter:${config.slug}`;
+  const [activeFilter, setActiveFilterState] = useState<ActiveFilter>("all");
+  function setActiveFilter(v: ActiveFilter) {
+    setActiveFilterState(v);
+    try {
+      localStorage.setItem(activeKey, v);
+    } catch {
+      /* storage unavailable: the filter still works for this visit */
+    }
+  }
   const fileInput = useRef<HTMLInputElement>(null);
   // Fields people edit; read-only ones are worked out by the database.
   const formFields = useMemo(() => config.fields.filter((f) => !f.readOnly), [config.fields]);
@@ -97,6 +110,7 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
           const options = ((data ?? []) as Record<string, unknown>[]).map((r) => ({
             value: r.id as string,
             label: String(r[labelKey] ?? r.id),
+            ...(typeof r.is_active === "boolean" ? { active: r.is_active } : {}),
           }));
           return [f.key, options] as const;
         }),
@@ -109,6 +123,14 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
     setSort(null);
     setNotice(null);
     setShowAll(false);
+    let saved: ActiveFilter = "all";
+    try {
+      const v = localStorage.getItem(activeKey);
+      if (v === "yes" || v === "no") saved = v;
+    } catch {
+      /* storage unavailable */
+    }
+    setActiveFilterState(saved);
     void loadRows();
     void loadOptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -197,7 +219,7 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
 
   // Dated tables (price list) show only today's rows unless "show all" is ticked.
   const today = new Date().toISOString().slice(0, 10);
-  const visibleRows = useMemo(() => {
+  const datedRows = useMemo(() => {
     const c = config.currentOnly;
     if (!c || showAll) return rows;
     return rows.filter((r) => {
@@ -206,6 +228,25 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
       return (!from || from <= today) && (!to || to >= today);
     });
   }, [rows, showAll, config.currentOnly, today]);
+
+  // A row is active when its own Active flag is on (if it has one) and every row it points to that
+  // has an Active flag is active too — e.g. a price-list row of an inactive variant counts as
+  // inactive, so nobody has to keep prices or colours up to date for cars no longer sold.
+  const ownActive = config.fields.some((f) => f.key === "is_active");
+  const rowActive = useMemo(() => {
+    const fks = config.fields.filter((f) => f.type === "foreign_key" && options[f.key]?.some((o) => o.active !== undefined));
+    if (!ownActive && fks.length === 0) return null;
+    return (r: Row) => {
+      if (ownActive && r.is_active === false) return false;
+      return fks.every((f) => r[f.key] == null || options[f.key]?.find((o) => o.value === r[f.key])?.active !== false);
+    };
+  }, [config.fields, options, ownActive]);
+
+  const visibleRows = useMemo(() => {
+    if (!rowActive || activeFilter === "all") return datedRows;
+    const want = activeFilter === "yes";
+    return datedRows.filter((r) => rowActive(r) === want);
+  }, [datedRows, rowActive, activeFilter]);
 
   const sortedRows = useMemo(() => {
     if (!sort) return visibleRows;
@@ -446,8 +487,24 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
       {config.currentOnly && !loading && rows.length > 0 && (
         <label className="mb-3 inline-flex items-center gap-2 text-sm text-slate-600">
           <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
-          Show expired and future rows ({rows.length - visibleRows.length} hidden)
+          Show expired and future rows ({rows.length - datedRows.length} hidden)
         </label>
+      )}
+      {rowActive && !loading && rows.length > 0 && (
+        <div className="mb-3 ml-4 inline-flex items-center gap-2 text-sm text-slate-600">
+          <span>Active:</span>
+          {(["all", "yes", "no"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setActiveFilter(v)}
+              className={`rounded-md border px-2.5 py-1 ${activeFilter === v ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}
+            >
+              {v === "all" ? "All" : v === "yes" ? "Yes" : "No"}
+            </button>
+          ))}
+          {activeFilter !== "all" && <span className="text-slate-400">({datedRows.length - visibleRows.length} hidden)</span>}
+        </div>
       )}
 
       {loading ? (
