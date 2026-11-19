@@ -38,7 +38,8 @@ export default function QuoteBuilder({ onSaved }: { onSaved: () => void }) {
   const masters = useQuery(async () => {
     const [outlets, variants, colors, rto, financiers] = await Promise.all([
       supabase.from("outlets").select("id, name").eq("is_active", true).order("name"),
-      supabase.from("variants").select("id, name, model_id, tkm_suffix_code, models(name)").eq("is_active", true).order("name"),
+      // TKM stock codes (FRNBK…) are reached through their sales variant + interior.
+      supabase.from("variants").select("id, name, model_id, tkm_suffix_code, models(name)").eq("is_active", true).is("sales_variant_id", null).order("name"),
       supabase.from("colors").select("id, name").order("name"),
       supabase.from("rto_categories").select("id, name").order("name"),
       supabase.from("financiers").select("id, name").eq("is_active", true).order("name"),
@@ -58,6 +59,7 @@ export default function QuoteBuilder({ onSaved }: { onSaved: () => void }) {
     outlet_id: "",
     variant_id: "",
     color_id: "",
+    interior_color_id: "",
     price_list_type: "private",
     rto_category_id: "00000000-0000-0000-000b-000000000001",
     rto_type: "NORMAL",
@@ -81,13 +83,14 @@ export default function QuoteBuilder({ onSaved }: { onSaved: () => void }) {
   const variant = masters.data?.variants.find((v) => v.id === f.variant_id);
   const options = useQuery(async () => {
     if (!variant) return null;
-    const [acc, vas, ceramic, insurers, list, colours] = await Promise.all([
+    const [acc, vas, ceramic, insurers, list, colours, interiors] = await Promise.all([
       rpcRows<{ id: string; name: string; price: number; is_top: boolean }>("accessories_for_variant", { p_variant_id: variant.id }),
       supabase.from("vas_products").select("id, name, price, model_id").eq("is_active", true).order("name"),
       supabase.from("ceramic_coating_prices").select("id, name, price").eq("model_id", variant.model_id).eq("is_active", true),
       rpcRows<{ provider_id: string; provider: string; premium: number; is_cheapest: boolean }>("insurance_quotes", { p_variant_id: variant.id }),
       supabase.from("price_list").select("insurance_options").eq("variant_id", variant.id).eq("list_type", f.price_list_type).order("effective_from", { ascending: false }).limit(1),
       supabase.from("variant_colors").select("color_id").eq("variant_id", variant.id),
+      supabase.from("variant_interior_colors").select("interior_colors(id, name, is_active)").eq("variant_id", variant.id),
     ]);
     const vasRows = (must(vas) as { id: string; name: string; price: number; model_id: string | null }[]).filter((v) => !v.model_id || v.model_id === variant.model_id);
     const listOpts = Object.keys(((must(list) as { insurance_options: Record<string, number> | null }[])[0]?.insurance_options ?? {}) as object);
@@ -98,6 +101,11 @@ export default function QuoteBuilder({ onSaved }: { onSaved: () => void }) {
       insurers,
       listOptions: listOpts,
       colourIds: new Set((must(colours) as { color_id: string }[]).map((c) => c.color_id)),
+      interiors: (must(interiors) as unknown as { interior_colors: (Named & { is_active: boolean }) | (Named & { is_active: boolean })[] | null }[])
+        .map((r) => (Array.isArray(r.interior_colors) ? r.interior_colors[0] : r.interior_colors))
+        .filter((c): c is Named & { is_active: boolean } => !!c && c.is_active)
+        .map((c) => ({ id: c.id, name: c.name }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
     };
   }, [variant?.id, f.price_list_type]);
 
@@ -125,7 +133,10 @@ export default function QuoteBuilder({ onSaved }: { onSaved: () => void }) {
     };
   }, [f, accessoryIds, vasIds]);
 
-  const ready = !!(f.variant_id && f.color_id && f.outlet_id);
+  // One interior fills itself in; with more (Black or Chamois…) it must be picked, as it decides the TKM suffix.
+  const interiors = options.data?.interiors ?? [];
+  const interiorId = interiors.length === 1 ? interiors[0].id : f.interior_color_id;
+  const ready = !!(f.variant_id && f.color_id && f.outlet_id && (interiors.length === 0 || interiorId));
   const price = useQuery(() => (ready ? rpc<Priced>("preview_quote_price", { p: payload }, { refresh: false }) : Promise.resolve(null)), [ready, JSON.stringify(payload)]);
 
   if (!masters.data) return <p className="text-sm text-slate-400">Loading…</p>;
@@ -151,7 +162,7 @@ export default function QuoteBuilder({ onSaved }: { onSaved: () => void }) {
             <Select
               value={f.variant_id}
               onChange={(v) => {
-                set({ variant_id: v, color_id: "", ceramic_coating_id: "", insurance: "" });
+                set({ variant_id: v, color_id: "", interior_color_id: "", ceramic_coating_id: "", insurance: "" });
                 setAccessoryIds([]);
                 setVasIds([]);
               }}
@@ -159,6 +170,10 @@ export default function QuoteBuilder({ onSaved }: { onSaved: () => void }) {
               options={m.variants.map((v) => ({ id: v.id, name: `${v.models?.name ?? ""} ${v.name}${v.tkm_suffix_code ? ` (${v.tkm_suffix_code})` : ""}` }))}
             />
             <Select value={f.color_id} onChange={(v) => set({ color_id: v })} options={colourOptions} placeholder="Colour" />
+            {interiors.length > 1 && (
+              <Select value={f.interior_color_id} onChange={(v) => set({ interior_color_id: v })} options={interiors} placeholder="Interior" />
+            )}
+            {interiors.length === 1 && <span className="self-center text-xs text-slate-500">Interior: {interiors[0].name}</span>}
             <Select value={f.price_list_type} onChange={(v) => set({ price_list_type: v })} options={LIST_TYPES} />
             <Select value={f.model_year} onChange={(v) => set({ model_year: v })} options={[{ id: "current", name: "Current model year" }, { id: "previous", name: "Previous model year" }]} />
             <input
@@ -234,7 +249,7 @@ export default function QuoteBuilder({ onSaved }: { onSaved: () => void }) {
         <Card title="Price">
           {price.error && <ErrorBox message={price.error} />}
           {!ready ? (
-            <p className="px-3 py-4 text-sm text-slate-400">Pick a branch, variant and colour.</p>
+            <p className="px-3 py-4 text-sm text-slate-400">Pick a branch, variant, colour{interiors.length > 1 ? " and interior" : ""}.</p>
           ) : price.data ? (
             <>
               <Table head={["", ""]}>
@@ -280,6 +295,7 @@ export default function QuoteBuilder({ onSaved }: { onSaved: () => void }) {
                     customer_mobile: f.customer_mobile.trim() || null,
                     variant_id: f.variant_id,
                     color_id: f.color_id,
+                    interior_color_id: interiorId || null,
                     rto_category_id: f.rto_category_id,
                     price_list_type: f.price_list_type,
                     insurance_option: payload.insurance_option,

@@ -78,6 +78,7 @@ export function useVehicleSelection(state: string) {
       .select("id, name, suffix, fuel_type_id, transmission_id, fuel_types(name), transmissions(name)")
       .eq("model_id", modelId)
       .eq("is_active", true)
+      .is("sales_variant_id", null) // TKM stock codes (FRNBK…) are reached through their sales variant + interior
       .then(({ data }) => setVariantsForModel(data ?? []));
   }, [modelId]);
 
