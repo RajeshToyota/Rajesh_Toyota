@@ -82,6 +82,7 @@ export default function ProceedToBookingScreen() {
       const sel: QuoteSelections = {
         variant_id: quoteRow.variant_id,
         color_id: quoteRow.color_id,
+        interior_color_id: quoteRow.interior_color_id ?? null,
         state: quoteRow.outlets?.state ?? "Rajasthan",
         rto_category_id: quoteRow.rto_category_id,
         list_type: quoteRow.price_list_type ?? "private",

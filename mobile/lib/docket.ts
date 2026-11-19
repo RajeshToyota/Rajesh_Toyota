@@ -128,6 +128,9 @@ export interface DocketBooking {
   created_at: string;
   variants: { name: string; suffix: string | null; model_id: string; models: { name: string } | null } | null;
   colors: { name: string } | null;
+  variant_id: string | null;
+  interior_color_id: string | null;
+  interior_colors: { name: string } | null;
   outlets: { name: string; address: string | null } | null;
   employees: { name: string } | null;
 }
@@ -137,7 +140,8 @@ const BOOKING_FIELDS =
   "priced_snapshot, mode_of_purchase, pan_number, date_of_birth, occupation, nominee_name, mothers_maiden_name, " +
   "is_company_purchase, company_name, payment_instrument_type, payment_instrument_no, payment_date, payment_amount, " +
   "payment_bank_name, likely_delivery_date, data_consent, created_at, variants(name, suffix, model_id, models(name)), " +
-  "colors(name), outlets(name, address), employees!bookings_employee_id_fkey(name)";
+  "colors(name), variant_id, interior_color_id, interior_colors(name), outlets(name, address), " +
+  "employees!bookings_employee_id_fkey(name)";
 
 export async function loadBooking(bookingId: string): Promise<DocketBooking> {
   const { data, error } = await supabase.from("bookings").select(BOOKING_FIELDS).eq("id", bookingId).single();

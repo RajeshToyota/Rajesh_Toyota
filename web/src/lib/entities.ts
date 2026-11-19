@@ -126,6 +126,28 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
         ],
       },
       {
+        slug: "interior-colors",
+        table: "interior_colors",
+        title: "Interior Colors",
+        orderBy: "name",
+        fields: [
+          { key: "name", label: "Name", type: "text", required: true },
+          { key: "is_active", label: "Active", type: "boolean" },
+        ],
+      },
+      {
+        slug: "variant-interior-colors",
+        table: "variant_interior_colors",
+        title: "Variant ↔ Interior Color",
+        description:
+          "Which interiors each variant comes in. A variant with one interior gets it filled in on quotes and " +
+          "bookings automatically; with two or more (e.g. Black or Maroon), the interior is picked on the quote.",
+        fields: [
+          { key: "variant_id", label: "Variant", type: "foreign_key", foreignTable: "variants", foreignLabelKey: "name", required: true },
+          { key: "interior_color_id", label: "Interior Color", type: "foreign_key", foreignTable: "interior_colors", required: true },
+        ],
+      },
+      {
         slug: "price-list",
         table: "price_list",
         title: "Price List",

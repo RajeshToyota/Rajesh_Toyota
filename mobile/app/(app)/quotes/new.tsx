@@ -69,6 +69,7 @@ export default function NewQuoteScreen() {
           enquiry_id: enquiryId ?? null,
           variant_id: vs.variantId,
           color_id: vs.colorId,
+          interior_color_id: vs.interiorColorId,
           rto_category_id: vs.rtoCategoryId,
           price_list_type: vs.priceListType,
           insurance_option: vs.usesListInsurance ? vs.insuranceOption : null,

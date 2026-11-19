@@ -68,7 +68,7 @@ export default function QuoteScreen() {
         .from("quotes")
         .select(
           "id, customer_name, customer_mobile, customer_phone, current_stage, status, priced_snapshot, total_amount, " +
-            "dealer_discount, selected_scheme_line_item_ids, variants(name, suffix, model_id, models(name)), colors(name), outlets(name)",
+            "dealer_discount, selected_scheme_line_item_ids, variants(name, suffix, model_id, models(name)), colors(name), interior_colors(name), outlets(name)",
         )
         .eq("id", id)
         .single(),
@@ -156,7 +156,9 @@ export default function QuoteScreen() {
       const docData = {
         customerName: quote.customer_name,
         variantName: variant?.name ?? "",
-        colorName: one<any>(quote.colors)?.name ?? "",
+        colorName: [one<any>(quote.colors)?.name, one<any>(quote.interior_colors)?.name && `${one<any>(quote.interior_colors)?.name} interior`]
+          .filter(Boolean)
+          .join(" · "),
         outletName: one<any>(quote.outlets)?.name ?? employee.outletName ?? "",
         employeeName: employee.name,
         pricing: { ...pricing, dealer_margin: undefined },
@@ -225,6 +227,7 @@ export default function QuoteScreen() {
           <Text className="text-lg font-semibold text-slate-900">{quote.customer_name}</Text>
           <Text className="text-sm text-slate-500">
             {one<any>(variant?.models)?.name} — {variant?.name} · {one<any>(quote.colors)?.name}
+            {one<any>(quote.interior_colors)?.name ? ` · ${one<any>(quote.interior_colors)?.name} interior` : ""}
           </Text>
         </View>
 
