@@ -27,6 +27,8 @@ export interface FieldConfig {
 
 export interface EntityConfig {
   slug: string;
+  // Still reachable at /admin/<slug>, but not listed under Masters (another menu has the full screen).
+  hideInMenu?: boolean;
   table: string;
   title: string;
   description?: string;
@@ -556,6 +558,7 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
       },
       {
         slug: "employees",
+        hideInMenu: true,
         table: "employees",
         title: "Employees",
         description: "Role + outlet + manager assignment drives both approval routing and RLS visibility.",
@@ -602,6 +605,7 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
     entities: [
       {
         slug: "financiers",
+        hideInMenu: true,
         table: "financiers",
         title: "Financiers",
         description: "Banks and NBFCs for finance cases. Captive = Toyota Financial Services (subvention schemes).",

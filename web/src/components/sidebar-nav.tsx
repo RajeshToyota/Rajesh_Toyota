@@ -32,7 +32,7 @@ const fallbackGroups: NavGroup[] = [
       { href: "/stock/allotted", label: "Allotted" },
       { href: "/stock/billing", label: "Billing" },
       { href: "/payments", label: "Payments" },
-      { href: "/cancellations", label: "Hold & Cancellations" },
+      { href: "/cancellations", label: "Cancellation Approvals" },
       { href: "/stock/ctdms", label: "CTDMS To-do" },
       { href: "/stock/import", label: "Import Stock" },
     ],
@@ -51,7 +51,7 @@ const fallbackGroups: NavGroup[] = [
       { href: "/reports/consultants", label: "Consultants" },
       { href: "/reports/sources", label: "Sources & Reasons" },
       { href: "/reports/stock-ageing", label: "Stock Ageing" },
-      { href: "/reports/quotes", label: "Quotes" },
+      { href: "/reports/quotes", label: "Quote Report" },
       { href: "/reports/bookings", label: "Bookings" },
       { href: "/reports/approvals", label: "Approvals" },
       { href: "/reports/margin", label: "Margin Summary" },
@@ -82,7 +82,7 @@ function mastersSubgroups(canView: (key: string) => boolean) {
     .map((g) => ({
       title: g.title,
       links: [
-        ...(canView("masters") ? g.entities.map((e) => ({ href: `/admin/${e.slug}`, label: e.title })) : []),
+        ...(canView("masters") ? g.entities.filter((e) => !e.hideInMenu).map((e) => ({ href: `/admin/${e.slug}`, label: e.title })) : []),
         ...(mastersTools[g.title] ?? []).filter((t) => canView(t.module)).map(({ href, label }) => ({ href, label })),
       ],
     }))

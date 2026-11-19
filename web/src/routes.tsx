@@ -1,4 +1,8 @@
 import { lazy, type ComponentType } from "react";
+import { ported } from "@/compat/ported";
+import { mergedPage } from "@/components/merged-page";
+
+const stage = (name: "CrmBillingStage" | "ReceiptsStage") => lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m[name] })));
 
 // Screens added by Phases 18–22, written as plain React pages (no compat layer). Each module key
 // is seeded in that phase's migration (app_modules) with its menu label and path.
@@ -75,19 +79,40 @@ export const phaseRoutes: { path: string; module?: string; Component: ComponentT
 
   // Phase 30: one screen per Ops Billing stage (the board at /ops-billing is the stage status)
   { path: "/ops-billing/accounts", module: "ops_accounts", Component: lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.AccountsStage }))) },
-  { path: "/ops-billing/crm-billing", module: "ops_crm_billing", Component: lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.CrmBillingStage }))) },
+  // CRM Billing: the CTDMS tracker and the invoice queue (Stock → Billing), one menu entry.
+  {
+    path: "/ops-billing/crm-billing", module: "ops_crm_billing",
+    Component: mergedPage([
+      { id: "crm", label: "CRM billing", module: "ops_crm_billing", Component: stage("CrmBillingStage") },
+      { id: "invoices", label: "Invoice queue", module: "stock_billing", Component: ported(() => import("@/pages/staff/stock/billing/page")) },
+    ]),
+  },
   { path: "/ops-billing/insurance", module: "ops_insurance", Component: lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.InsuranceStage }))) },
   { path: "/ops-billing/rto", module: "ops_rto", Component: lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.RtoStage }))) },
   { path: "/ops-billing/accessories", module: "ops_accessories", Component: lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.AccessoriesStage }))) },
   { path: "/ops-billing/schemes", module: "ops_scheme", Component: lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.SchemesStage }))) },
   { path: "/ops-billing/scrap", module: "ops_scrap", Component: lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.ScrapStage }))) },
-  { path: "/ops-billing/receipts", module: "ops_receipts", Component: lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.ReceiptsStage }))) },
+  // Payment Receipts: the receipt register and clearance / what customers still owe, one menu entry.
+  {
+    path: "/ops-billing/receipts", module: "ops_receipts",
+    Component: mergedPage([
+      { id: "receipts", label: "Receipts", module: "ops_receipts", Component: stage("ReceiptsStage") },
+      { id: "clearance", label: "Clearance & dues", module: "payments", Component: ported(() => import("@/pages/staff/payments/page")) },
+    ]),
+  },
 
   // Phase 32: payroll
   { path: "/payroll", module: "payroll", Component: lazy(() => import("@/pages/payroll/Payroll")) },
 
   // Phase 33: used cars and reception
-  { path: "/used-cars/exchange", module: "used_car_exchange", Component: lazy(() => import("@/pages/used/Exchange")) },
+  // Exchange: evaluations (request, value, buy in) and the deal desk, one menu entry.
+  {
+    path: "/used-cars/exchange", module: "used_car_exchange",
+    Component: mergedPage([
+      { id: "evaluations", label: "Evaluations", module: "used_car_evaluations", Component: lazy(() => import("@/pages/used/Evaluations")) },
+      { id: "deals", label: "Deals, inspection & outside cars", module: "used_car_exchange", Component: lazy(() => import("@/pages/used/Exchange")) },
+    ]),
+  },
   { path: "/kiosk", module: "kiosk", Component: lazy(() => import("@/pages/crm/Kiosk")) },
   { path: "/reception/ctdms-queue", module: "reception_ctdms", Component: lazy(() => import("@/pages/crm/CtdmsQueue")) },
 ];

@@ -4,25 +4,13 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminPanel from "@/pages/AdminPanel";
 import LoginPage from "@/pages/login/page";
 import SetPasswordPage from "@/pages/auth/set-password/page";
-import { ServerPage, type ServerComponent } from "@/compat/server-page";
+import { ported, type Loader } from "@/compat/ported";
 import { setNavigate } from "@/compat/navigate";
 import RequireModule from "@/components/RequireModule";
 import { phaseRoutes } from "@/routes";
+import { mergedPage } from "@/components/merged-page";
 
 const VerifyReceipt = lazy(() => import("@/pages/ops/billing/Stages").then((m) => ({ default: m.VerifyReceipt })));
-
-type Module = { default: ServerComponent };
-type Loader = () => Promise<Module>;
-
-// A page ported from the Next.js dashboard, loaded on first visit (as Techwheels lazy-loads its admin
-// pages) and rendered through <ServerPage> with its layouts around it.
-function ported(load: Loader, layouts: Loader[] = []) {
-  return lazy(async () => {
-    const [page, ...wrappers] = await Promise.all([load(), ...layouts.map((l) => l())]);
-    const Page: ComponentType = () => <ServerPage page={page.default} layouts={wrappers.map((w) => w.default)} />;
-    return { default: Page };
-  });
-}
 
 const reportsLayout: Loader = () => import("@/pages/staff/reports/layout");
 const stockLayout: Loader = () => import("@/pages/staff/stock/layout");
@@ -40,7 +28,14 @@ const routes: RouteDef[] = [
   { path: "/enquiries", module: "enquiries", Component: ported(() => import("@/pages/staff/enquiries/page")) },
   { path: "/enquiries/new", module: "enquiries_new", Component: ported(() => import("@/pages/staff/enquiries/new/page")) },
   { path: "/crm-sync", module: "crm_sync", Component: ported(() => import("@/pages/staff/crm-sync/page")) },
-  { path: "/finance", module: "finance_cases", Component: ported(() => import("@/pages/staff/finance/page")) },
+  // Finance Cases: the stage pipeline and the multi-bank desk (verification), one menu entry.
+  {
+    path: "/finance", module: "finance_cases",
+    Component: mergedPage([
+      { id: "pipeline", label: "Pipeline", module: "finance_cases", Component: ported(() => import("@/pages/staff/finance/page")) },
+      { id: "desk", label: "All banks & verification", module: "finance_desk", Component: lazy(() => import("@/pages/finance/Desk")) },
+    ]),
+  },
   { path: "/finance/:id", module: "finance_cases", Component: ported(() => import("@/pages/staff/finance/[id]/page")) },
 
   // Stock
