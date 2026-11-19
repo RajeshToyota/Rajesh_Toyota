@@ -72,6 +72,10 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
         slug: "variants",
         table: "variants",
         title: "Variants",
+        description:
+          "Where TKM gives one configuration a suffix per interior (Fortuner 4x2 AT: FRNBK Black, FRNCK Chamois), " +
+          "the suffixes are stock codes under one sales variant: set their Sales Variant, and keep the price list " +
+          "and colours on the sales variant only. Quotes pick the sales variant and an interior; the interior picks the stock code.",
         orderBy: "name",
         fields: [
           { key: "model_id", label: "Model", type: "foreign_key", foreignTable: "models", required: true },
@@ -81,6 +85,7 @@ export const entityGroups: { title: string; entities: EntityConfig[] }[] = [
           { key: "tkm_suffix_code", label: "TKM Suffix Code (e.g. D22U4)", type: "text" },
           { key: "old_suffix_code", label: "Old Suffix Code", type: "text", hideInTable: true },
           { key: "name", label: "Name", type: "text", required: true },
+          { key: "sales_variant_id", label: "Sales Variant (for a TKM stock code)", type: "foreign_key", foreignTable: "variants", foreignLabelKey: "name" },
           { key: "gst_rate_percent", label: "GST %", type: "number", step: "0.01", hideInTable: true },
           { key: "engine_cc", label: "Engine cc", type: "number", hideInTable: true },
           { key: "hsn_code", label: "HSN Code (8 digits)", type: "text", hideInTable: true },
