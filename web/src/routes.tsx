@@ -83,4 +83,7 @@ export const phaseRoutes: { path: string; module?: string; Component: ComponentT
   // Phase 33: used cars and reception (Exchange is a tabbed screen: lib/tabbed-screens)
   { path: "/kiosk", module: "kiosk", Component: lazy(() => import("@/pages/crm/Kiosk")) },
   { path: "/reception/ctdms-queue", module: "reception_ctdms", Component: lazy(() => import("@/pages/crm/CtdmsQueue")) },
+
+  // Lost to Competition: RTO registration dump matched to the enquiry dump on mobile number
+  { path: "/reports/lost-sales", module: "rpt_lost_sales", Component: lazy(() => import("@/pages/crm/LostSales")) },
 ];
