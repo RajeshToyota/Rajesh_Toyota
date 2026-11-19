@@ -179,8 +179,12 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
       } else if (f.type === "text_array") {
         const parts = String(v ?? "").split(",").map((s) => s.trim()).filter(Boolean);
         payload[f.key] = parts.length > 0 ? parts : null;
-      } else {
+      } else if (f.type === "boolean") {
         payload[f.key] = v;
+      } else {
+        // A blank text box saves as "no value", same as Import. An empty string would break
+        // format checks such as variants.hsn_code (8 digits or nothing).
+        payload[f.key] = typeof v === "string" && v.trim() === "" ? null : v;
       }
     }
 
