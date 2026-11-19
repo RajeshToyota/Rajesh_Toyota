@@ -123,4 +123,5 @@ engine in `supabase/migrations/` (Phase 1) for the shared `calculate_price` impl
   - `20261119010010` → `20261119061500` payroll (Phase 32)
   - `20261119010011` → `20261119061504` used_cars_reception (Phase 33)
   - `20261119020001` → `20261119063109` masters_menu_dedupe (Phase 24 pages off the flat menu)
+  - `20261119020002` → `20261119063537` menu_merges (one menu entry per job)
   - The us-east-1 fallback (`dvcjynxvqpcydcphdcst`) does not have these.
