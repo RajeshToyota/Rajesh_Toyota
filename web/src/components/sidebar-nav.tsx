@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocation } from "react-router-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -58,11 +59,35 @@ const fallbackGroups: NavGroup[] = [
   },
 ];
 
-// Master data drills down one more level: group ▸ table.
-const mastersSubgroups = entityGroups.map((g) => ({
-  title: g.title,
-  links: g.entities.map((e) => ({ href: `/admin/${e.slug}`, label: e.title })),
-}));
+// Tools that live only on the dedicated masters pages (Phase 24), listed once inside their subgroup.
+// Each is gated by its own module, so someone with that module but not "masters" still sees it.
+const mastersTools: Record<string, (NavLink & { module: string })[]> = {
+  Catalog: [
+    { href: "/masters/catalog?tab=photos", label: "Colour Photos", module: "catalog" },
+    { href: "/masters/catalog?tab=content", label: "Variant Content", module: "catalog" },
+    { href: "/masters/catalog?tab=accessory-check", label: "Accessories by Variant", module: "catalog" },
+  ],
+  Schemes: [
+    { href: "/masters/schemes?tab=revisions", label: "Scheme Revisions", module: "schemes" },
+    { href: "/masters/schemes?tab=bulk", label: "Bulk Scheme Entry", module: "schemes" },
+    { href: "/masters/discount-rules", label: "Variant Coupon Cap", module: "discount_rules" },
+  ],
+  RTO: [{ href: "/masters/rto?tab=calc", label: "RTO Calculator", module: "rto_settings" }],
+  Insurance: [{ href: "/masters/insurance?tab=compare", label: "Compare Insurers", module: "insurance_rates" }],
+};
+
+// Master data drills down one more level: group ▸ table (and the group's tools).
+function mastersSubgroups(canView: (key: string) => boolean) {
+  return entityGroups
+    .map((g) => ({
+      title: g.title,
+      links: [
+        ...(canView("masters") ? g.entities.map((e) => ({ href: `/admin/${e.slug}`, label: e.title })) : []),
+        ...(mastersTools[g.title] ?? []).filter((t) => canView(t.module)).map(({ href, label }) => ({ href, label })),
+      ],
+    }))
+    .filter((g) => g.links.length > 0);
+}
 
 // The menu comes from the database (menu_groups / app_modules) and shows only the screens the
 // employee has the view right on, as Techwheels' AdminPanel does.
@@ -70,14 +95,15 @@ function useNavGroups(): NavGroup[] {
   const { available, isAdmin, rights, groups, modules } = useRbacStore();
   return useMemo(() => {
     const canView = (key: string) => isAdmin || rights.has(`${key}:view`);
-    if (!available) return [...fallbackGroups, { title: "Masters", subgroups: mastersSubgroups }];
+    if (!available) return [...fallbackGroups, { title: "Masters", subgroups: mastersSubgroups(() => true) }];
     return groups
       .map((g) => {
         const links = modules
           .filter((m) => m.group_key === g.key && m.in_menu && m.is_active && m.path && canView(m.key))
           .sort((a, b) => a.sort_order - b.sort_order)
           .map((m) => ({ href: m.path!, label: m.label }));
-        const subgroups = g.key === "masters" && canView("masters") ? mastersSubgroups : undefined;
+        const masters = g.key === "masters" ? mastersSubgroups(canView) : [];
+        const subgroups = masters.length ? masters : undefined;
         return { title: g.title, links: links.length ? links : undefined, subgroups };
       })
       .filter((g) => g.links || g.subgroups);
@@ -113,7 +139,9 @@ export function SidebarNav() {
     };
   }, []);
 
-  const isActive = (href: string) => pathname === href;
+  const { search } = useLocation();
+  // A tool link names its tab (?tab=…); it is active only on that tab.
+  const isActive = (href: string) => (href.includes("?") ? href === pathname + search : pathname === href);
 
   return (
     <div ref={ref} className="relative">

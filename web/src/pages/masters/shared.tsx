@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import { EntityManager } from "@/components/entity-manager";
 import { findEntity } from "@/lib/entities";
 import { isMasterDataAdmin, useCurrentEmployee } from "@/lib/auth";
@@ -27,7 +28,10 @@ export function MasterTabs({
   module: string;
   tabs: { id: string; label: string; entity?: string; render?: () => ReactNode }[];
 }) {
-  const [tab, setTab] = useState(tabs[0].id);
+  // The tab lives in ?tab= so menu links can open a given tab, even when the page is already open.
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab") ?? tabs[0].id;
+  const setTab = (id: string) => setParams((p) => { p.set("tab", id); return p; }, { replace: true });
   const canWrite = useCanWriteMaster(module);
   const current = tabs.find((t) => t.id === tab) ?? tabs[0];
   const config = current.entity ? findEntity(current.entity) : undefined;
