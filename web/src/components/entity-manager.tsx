@@ -178,7 +178,9 @@ export function EntityManager({ config, canWrite }: { config: EntityConfig; canW
         payload[f.key] = v === "" ? null : v;
       } else if (f.type === "text_array") {
         const parts = String(v ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-        payload[f.key] = parts.length > 0 ? parts : null;
+        // Empty list, not null: array columns such as accessories.excluded_model_ids are
+        // NOT NULL DEFAULT '{}' (same as Import, which already sends []).
+        payload[f.key] = parts;
       } else if (f.type === "boolean") {
         payload[f.key] = v;
       } else {
