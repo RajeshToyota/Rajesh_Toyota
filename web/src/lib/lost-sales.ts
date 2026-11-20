@@ -86,6 +86,8 @@ export type RtoRow = {
   purchaseDate: string;
   amount: number | null;
   dealer: string;
+  isCar: boolean;
+  isToyota: boolean;
 };
 
 export function parseRto(grid: Grid, file: string): RtoRow[] {
@@ -98,22 +100,26 @@ export function parseRto(grid: Grid, file: string): RtoRow[] {
     if (!row || row.every((v) => !v)) continue;
     const maker = at(row, c.maker);
     const amount = Number(at(row, c.amount).replace(/[^\d.]/g, ""));
+    const brand = brandOf(maker);
+    const vehicleClass = at(row, c.vehicleClass);
     out.push({
       file,
       office: at(row, c.office),
       regNo: at(row, c.regNo),
       regDate: excelDate(at(row, c.regDate)),
-      vehicleClass: at(row, c.vehicleClass),
+      vehicleClass,
       owner: at(row, c.owner),
       mobile: normMobile(at(row, c.mobile)),
       address: at(row, c.address),
       financer: at(row, c.financer),
       maker,
-      brand: brandOf(maker),
+      brand,
       model: at(row, c.model),
       purchaseDate: excelDate(at(row, c.purchaseDate)),
       amount: amount > 0 ? amount : null,
       dealer: at(row, c.dealer).replace(/\s+/g, " "),
+      isCar: brand !== "Tractor" && !NOT_A_CAR.test(vehicleClass) && !/TRACTOR/i.test(maker),
+      isToyota: brand === "Toyota" || brand === "Lexus",
     });
   }
   return out;
@@ -173,18 +179,39 @@ export function brandOf(maker: string) {
 }
 
 const NOT_A_CAR = /TRACTOR|BUS|AMBULANCE|HARVESTER|TRAILER|GOODS|TRUCK|LOADER/i;
-export const isCarLike = (r: RtoRow) => r.brand !== "Tractor" && !NOT_A_CAR.test(r.vehicleClass) && !/TRACTOR/i.test(r.maker);
-export const isToyota = (r: RtoRow) => r.brand === "Toyota" || r.brand === "Lexus";
 
-// Our own Toyota dealership names as the RTO prints them: Toyota sales whose dealer name mentions RAJESH.
-export function guessOwnDealers(rows: RtoRow[]): string[] {
-  const s = new Set<string>();
-  for (const r of rows) if (isToyota(r) && /RAJESH/i.test(r.dealer)) s.add(r.dealer);
-  return [...s].sort();
-}
+// Our own Toyota dealership names as the RTO prints them: Toyota dealer names that mention RAJESH.
+export const guessOwnDealers = (toyotaDealers: [string, number][]) => toyotaDealers.map(([d]) => d).filter((d) => /RAJESH/i.test(d)).sort();
 
 export type Outcome = "ours" | "other_toyota" | "other_brand";
 export const OUTCOME_LABEL: Record<Outcome, string> = { ours: "Bought from us", other_toyota: "Other Toyota dealer", other_brand: "Other brand" };
+
+// An RTO registration whose mobile is in an enquiry, with how many registrations carry that mobile.
+export type Candidate = RtoRow & { mobileRegs: number };
+
+// What the report works from (the database's lost_sales_data, or datasetFromRows for files in hand).
+export type Dataset = {
+  totals: { rows: number; noMobile: number; notCar: number };
+  enquiryMobiles: number;
+  toyotaDealers: [string, number][];
+  candidates: Candidate[];
+  enquiries: EnquiryRow[];
+};
+
+export function datasetFromRows(rto: RtoRow[], enquiries: EnquiryRow[]): Dataset {
+  const enqMobiles = new Set(enquiries.map((e) => e.mobile));
+  const perMobile = new Map<string, number>();
+  for (const r of rto) if (r.mobile) perMobile.set(r.mobile, (perMobile.get(r.mobile) ?? 0) + 1);
+  const candidates = rto.filter((r) => r.mobile && enqMobiles.has(r.mobile)).map((r) => ({ ...r, mobileRegs: perMobile.get(r.mobile!) ?? 1 }));
+  const candMobiles = new Set(candidates.map((c) => c.mobile));
+  return {
+    totals: { rows: rto.length, noMobile: rto.filter((r) => !r.mobile).length, notCar: rto.filter((r) => r.mobile && !r.isCar).length },
+    enquiryMobiles: enqMobiles.size,
+    toyotaDealers: tally(rto.filter((r) => r.isToyota), (r) => r.dealer),
+    candidates,
+    enquiries: enquiries.filter((e) => candMobiles.has(e.mobile)),
+  };
+}
 
 export type Match = RtoRow & { mobile: string; outcome: Outcome; enquiries: EnquiryRow[] };
 
@@ -195,42 +222,35 @@ export type Options = {
   carsOnly: boolean;
 };
 
-export function matchRto(rto: RtoRow[], enquiries: EnquiryRow[], opt: Options) {
+export function matchRto(ds: Dataset, opt: Options) {
   const byMobile = new Map<string, EnquiryRow[]>();
-  for (const e of enquiries) {
+  for (const e of ds.enquiries) {
     const list = byMobile.get(e.mobile);
     if (list) list.push(e);
     else byMobile.set(e.mobile, [e]);
   }
-  const perMobile = new Map<string, number>();
-  for (const r of rto) if (r.mobile) perMobile.set(r.mobile, (perMobile.get(r.mobile) ?? 0) + 1);
-  const bulk = new Set([...perMobile].filter(([, n]) => n > opt.bulkLimit).map(([m]) => m));
-
   const matches: Match[] = [];
-  let considered = 0;
   let skippedBulk = 0;
-  let skippedNotCar = 0;
-  let noMobile = 0;
-  for (const r of rto) {
-    if (!r.mobile) {
-      noMobile++;
-      continue;
-    }
-    if (opt.carsOnly && !isCarLike(r)) {
-      skippedNotCar++;
-      continue;
-    }
-    considered++;
+  for (const r of ds.candidates) {
+    if (!r.mobile || (opt.carsOnly && !r.isCar)) continue;
     const enq = byMobile.get(r.mobile);
     if (!enq) continue;
-    if (bulk.has(r.mobile)) {
+    if (r.mobileRegs > opt.bulkLimit) {
       skippedBulk++;
       continue;
     }
-    const outcome: Outcome = isToyota(r) ? (opt.ownDealers.has(r.dealer) ? "ours" : "other_toyota") : "other_brand";
+    const outcome: Outcome = r.isToyota ? (opt.ownDealers.has(r.dealer) ? "ours" : "other_toyota") : "other_brand";
     matches.push({ ...r, mobile: r.mobile, outcome, enquiries: enq });
   }
-  return { matches, considered, skippedBulk, skippedNotCar, noMobile, bulkMobiles: bulk.size, enquiryMobiles: byMobile.size };
+  const skippedNotCar = opt.carsOnly ? ds.totals.notCar : 0;
+  return {
+    matches,
+    considered: ds.totals.rows - ds.totals.noMobile - skippedNotCar,
+    skippedBulk,
+    skippedNotCar,
+    noMobile: ds.totals.noMobile,
+    enquiryMobiles: ds.enquiryMobiles,
+  };
 }
 
 // Count by key, largest first.

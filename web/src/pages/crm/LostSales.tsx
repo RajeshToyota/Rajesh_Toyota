@@ -1,9 +1,9 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { useRightGate } from "@/lib/rbac";
 import {
   OUTCOME_LABEL,
   guessOwnDealers,
-  isToyota,
   matchRto,
   matchesCsv,
   parseEnquiries,
@@ -11,78 +11,167 @@ import {
   readSheet,
   tally,
   uniq,
+  type Candidate,
+  type Dataset,
   type EnquiryRow,
   type Match,
   type Outcome,
-  type RtoRow,
 } from "@/lib/lost-sales";
-import { Card, Chip, EmptyRow, ErrorBox, PageHeader, RunButton, Stat, Table, Td, fmtDate, inputCls, inr } from "@/ui";
+import { Card, Chip, EmptyRow, ErrorBox, PageHeader, Stat, Table, Td, fmtDate, fmtDateTime, inputCls, inr } from "@/ui";
 
-type Loaded<T> = { file: string; rows: T[]; note?: string };
+type SavedFile = { id: string; kind: "rto" | "enquiry"; file_name: string; row_count: number; skipped_rows: number; uploaded_at: string; employees: { name: string } | null };
 
 const PAGE = 200;
+const BATCH = 2000;
 const outcomeTone = { ours: "emerald", other_toyota: "amber", other_brand: "red" } as const;
 const pct = (n: number, d: number) => (d ? `${Math.round((n / d) * 100)}%` : "—");
 
+// Per-viewer settings (which dealer names are ours, the bulk limit, cars only, CRM enquiries).
+const SETTINGS_KEY = "lost-sales-settings";
+type Settings = { ownDealers?: string[]; bulkLimit?: number; carsOnly?: boolean; includeCrm?: boolean };
+function readSettings(): Settings {
+  try {
+    return JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as Settings;
+  } catch {
+    return {};
+  }
+}
+function saveSettings(s: Settings) {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  } catch {
+    /* private window: settings just aren't remembered */
+  }
+}
+
+type DbRto = {
+  office: string | null; reg_no: string | null; reg_date: string | null; vehicle_class: string | null; owner: string | null; mobile: string | null;
+  address: string | null; financer: string | null; maker: string | null; brand: string | null; model: string | null; purchase_date: string | null;
+  amount: number | null; dealer: string | null; is_car: boolean; is_toyota: boolean; mobile_regs: number;
+};
+type DbEnquiry = { mobile: string; name: string | null; model: string | null; grade: string | null; officer: string | null; enquiry_date: string | null; source: string };
+type DbData = { totals: { rows: number; no_mobile: number; not_car: number }; enquiry_mobiles: number; toyota_dealers: [string, number][]; candidates: DbRto[]; enquiries: DbEnquiry[] };
+
+const s = (v: string | null | undefined) => v ?? "";
+function toDataset(d: DbData): Dataset {
+  return {
+    totals: { rows: d.totals.rows, noMobile: d.totals.no_mobile, notCar: d.totals.not_car },
+    enquiryMobiles: d.enquiry_mobiles,
+    toyotaDealers: d.toyota_dealers,
+    candidates: d.candidates.map(
+      (r): Candidate => ({
+        file: "", office: s(r.office), regNo: s(r.reg_no), regDate: s(r.reg_date), vehicleClass: s(r.vehicle_class), owner: s(r.owner),
+        mobile: r.mobile, address: s(r.address), financer: s(r.financer), maker: s(r.maker), brand: s(r.brand), model: s(r.model),
+        purchaseDate: s(r.purchase_date), amount: r.amount === null ? null : Number(r.amount), dealer: s(r.dealer), isCar: r.is_car,
+        isToyota: r.is_toyota, mobileRegs: Number(r.mobile_regs),
+      }),
+    ),
+    enquiries: d.enquiries.map((e): EnquiryRow => ({ source: e.source, name: s(e.name), mobile: e.mobile, model: s(e.model), grade: s(e.grade), officer: s(e.officer), date: s(e.enquiry_date) })),
+  };
+}
+
+const nullIfEmpty = (v: string) => (v ? v : null);
+const isoOrNull = (v: string) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+
 // Lost to Competition: of the customers who once enquired with us, who registered a vehicle bought
-// elsewhere: from another Toyota dealer, or another brand. Upload the RTO registration dump (one
-// file per month is fine; each month's column layout may differ) and the enquiry dump; they are
-// matched on mobile number in the browser and never leave this computer.
+// elsewhere: from another Toyota dealer, or another brand. Each month's RTO dump and each enquiry dump
+// is uploaded once and saved (lost_sales_* tables); uploading a file with the same name replaces it.
 export default function LostSales() {
-  const [rtoFiles, setRtoFiles] = useState<Loaded<RtoRow>[]>([]);
-  const [enqFiles, setEnqFiles] = useState<Loaded<EnquiryRow>[]>([]);
+  const canUpload = useRightGate("rpt_lost_sales", "create");
+  const canDelete = useRightGate("rpt_lost_sales", "delete");
+  const initial = useMemo(readSettings, []);
+  const [files, setFiles] = useState<SavedFile[] | null>(null);
+  const [data, setData] = useState<Dataset | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
-  const [ownDealers, setOwnDealers] = useState<Set<string> | null>(null);
-  const [bulkLimit, setBulkLimit] = useState(5);
-  const [carsOnly, setCarsOnly] = useState(true);
+  const [ownDealers, setOwnDealers] = useState<Set<string> | null>(initial.ownDealers ? new Set(initial.ownDealers) : null);
+  const [bulkLimit, setBulkLimit] = useState(initial.bulkLimit ?? 5);
+  const [carsOnly, setCarsOnly] = useState(initial.carsOnly ?? true);
+  const [includeCrm, setIncludeCrm] = useState(initial.includeCrm ?? false);
 
-  const rto = useMemo(() => rtoFiles.flatMap((f) => f.rows), [rtoFiles]);
-  const enquiries = useMemo(() => enqFiles.flatMap((f) => f.rows), [enqFiles]);
+  useEffect(() => {
+    saveSettings({ ownDealers: ownDealers ? [...ownDealers] : undefined, bulkLimit, carsOnly, includeCrm });
+  }, [ownDealers, bulkLimit, carsOnly, includeCrm]);
 
-  // Toyota dealers in the dump, busiest first, so our own can be ticked.
-  const toyotaDealers = useMemo(() => tally(rto.filter(isToyota), (r) => r.dealer), [rto]);
-  const own = useMemo(() => ownDealers ?? new Set(guessOwnDealers(rto)), [ownDealers, rto]);
+  const reload = useCallback(async () => {
+    const [f, d] = await Promise.all([
+      supabase.from("lost_sales_files").select("id, kind, file_name, row_count, skipped_rows, uploaded_at, employees(name)").order("file_name"),
+      supabase.rpc("lost_sales_data", { p_include_crm: includeCrm }),
+    ]);
+    if (f.error || d.error) {
+      setErrors([(f.error ?? d.error)!.message]);
+      return;
+    }
+    setFiles(f.data as unknown as SavedFile[]);
+    setData(toDataset(d.data as DbData));
+  }, [includeCrm]);
 
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  const own = useMemo(() => ownDealers ?? new Set(guessOwnDealers(data?.toyotaDealers ?? [])), [ownDealers, data]);
+  const rtoFiles = files?.filter((f) => f.kind === "rto") ?? [];
+  const enqFiles = files?.filter((f) => f.kind === "enquiry") ?? [];
   const result = useMemo(
-    () => (rto.length && enquiries.length ? matchRto(rto, enquiries, { ownDealers: own, bulkLimit, carsOnly }) : null),
-    [rto, enquiries, own, bulkLimit, carsOnly],
+    () => (data && data.totals.rows > 0 && data.enquiryMobiles > 0 ? matchRto(data, { ownDealers: own, bulkLimit, carsOnly }) : null),
+    [data, own, bulkLimit, carsOnly],
   );
 
-  async function load<T>(files: FileList | null, label: string, parse: (grid: string[][], name: string) => Loaded<T>, set: (f: (prev: Loaded<T>[]) => Loaded<T>[]) => void) {
-    if (!files?.length) return;
+  async function upload(list: FileList | null, kind: "rto" | "enquiry") {
+    if (!list?.length) return;
     const errs: string[] = [];
-    for (const file of Array.from(files)) {
-      setBusy(`Reading ${label} ${file.name}…`);
+    for (const file of Array.from(list)) {
       try {
-        const loaded = parse(await readSheet(file), file.name);
-        set((prev) => [...prev.filter((p) => p.file !== loaded.file), loaded]);
+        setBusy(`Reading ${file.name}…`);
+        const grid = await readSheet(file);
+        let rows: Record<string, unknown>[];
+        let skipped = 0;
+        if (kind === "rto") {
+          rows = parseRto(grid, file.name).map((r) => ({
+            office: r.office, reg_no: r.regNo, reg_date: isoOrNull(r.regDate), vehicle_class: r.vehicleClass, owner: r.owner, mobile: r.mobile,
+            address: r.address, financer: r.financer, maker: r.maker, brand: r.brand, model: r.model, purchase_date: isoOrNull(r.purchaseDate),
+            amount: r.amount, dealer: r.dealer, is_car: r.isCar, is_toyota: r.isToyota,
+          }));
+        } else {
+          const p = parseEnquiries(grid, file.name);
+          skipped = p.badMobiles;
+          rows = p.rows.map((e) => ({ name: e.name, mobile: e.mobile, model: e.model, grade: nullIfEmpty(e.grade), officer: e.officer, enquiry_date: isoOrNull(e.date) }));
+        }
+        const begin = await supabase.rpc("lost_sales_begin_file", { p_kind: kind, p_file_name: file.name });
+        if (begin.error) throw new Error(begin.error.message);
+        for (let i = 0; i < rows.length; i += BATCH) {
+          setBusy(`Saving ${file.name}: ${Math.min(i + BATCH, rows.length).toLocaleString("en-IN")} of ${rows.length.toLocaleString("en-IN")} rows…`);
+          const add = await supabase.rpc("lost_sales_add_rows", { p_file_id: begin.data, p_rows: rows.slice(i, i + BATCH), p_skipped: i === 0 ? skipped : 0 });
+          if (add.error) throw new Error(`${add.error.message} (saved up to row ${i}; upload the file again)`);
+        }
       } catch (e) {
         errs.push(`${file.name}: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
+    setBusy("Updating the report…");
+    await reload();
     setErrors(errs);
     setBusy(null);
   }
 
-  async function loadCrmEnquiries() {
-    const rows: EnquiryRow[] = [];
-    for (let from = 0; ; from += 1000) {
-      const { data, error } = await supabase
-        .from("enquiries")
-        .select("created_at, customers(name, mobile), models(name), assigned:employees!enquiries_assigned_employee_id_fkey(name)")
-        .order("created_at")
-        .range(from, from + 999);
-      if (error) throw new Error(error.message);
-      type Row = { created_at: string; customers: { name: string; mobile: string } | null; models: { name: string } | null; assigned: { name: string } | null };
-      for (const r of data as unknown as Row[]) {
-        if (!r.customers?.mobile) continue;
-        rows.push({ source: "CRM", name: r.customers.name, mobile: r.customers.mobile, model: r.models?.name ?? "", grade: "", officer: r.assigned?.name ?? "", date: r.created_at.slice(0, 10) });
-      }
-      if (data.length < 1000) break;
-    }
-    setEnqFiles((prev) => [...prev.filter((p) => p.file !== "CRM enquiries"), { file: "CRM enquiries", rows }]);
+  async function remove(f: SavedFile) {
+    if (!window.confirm(`Remove ${f.file_name} and its ${f.row_count.toLocaleString("en-IN")} rows?`)) return;
+    setBusy(`Removing ${f.file_name}…`);
+    const { error } = await supabase.rpc("lost_sales_delete_file", { p_file_id: f.id });
+    if (error) setErrors([error.message]);
+    await reload();
+    setBusy(null);
   }
+
+  const picker = (kind: "rto" | "enquiry") =>
+    canUpload && (
+      <input type="file" multiple accept=".xlsx,.xls,.csv" disabled={!!busy} className="text-sm" onChange={(e) => {
+        const list = e.target.files;
+        void upload(list, kind);
+        e.target.value = "";
+      }} />
+    );
 
   return (
     <div>
@@ -92,94 +181,93 @@ export default function LostSales() {
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="1. RTO registration dump" note="Excel (.xlsx / .xls) or CSV. Select several months at once; the columns are found by their names.">
+        <Card title="1. RTO registration dumps" note="Saved once, kept for everyone. Add each new month as it comes; a file with the same name replaces the old one. A registration in two files counts once.">
           <div className="p-3">
-          <input type="file" multiple accept=".xlsx,.xls,.csv" className="text-sm" onChange={(e) => {
-            const files = e.target.files;
-            void load(files, "RTO", (g, n) => ({ file: n, rows: parseRto(g, n) }), setRtoFiles);
-            e.target.value = "";
-          }} />
-          <FileList files={rtoFiles} unit="registrations" onRemove={(f) => setRtoFiles((p) => p.filter((x) => x.file !== f))} />
+            {picker("rto")}
+            <FileList files={rtoFiles} unit="registrations" canDelete={canDelete} onRemove={remove} />
           </div>
         </Card>
-        <Card title="2. Enquiry dump" note="Needs a Mobile Number column; Customer Name, Model Name, Grade Code and Sales Officer are used when present.">
+        <Card title="2. Enquiry dumps" note="Needs a Mobile Number column; Customer Name, Model Name, Grade Code and Sales Officer are used when present.">
           <div className="p-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <input type="file" multiple accept=".xlsx,.xls,.csv" className="text-sm" onChange={(e) => {
-              const files = e.target.files;
-              void load(files, "enquiries", (g, n) => {
-                const p = parseEnquiries(g, n);
-                return { file: n, rows: p.rows, note: p.badMobiles ? `${p.badMobiles} rows without a valid mobile skipped` : undefined };
-              }, setEnqFiles);
-              e.target.value = "";
-            }} />
-            <RunButton tone="light" label="Add enquiries from this CRM" run={loadCrmEnquiries} />
-          </div>
-          <FileList files={enqFiles} unit="enquiries" onRemove={(f) => setEnqFiles((p) => p.filter((x) => x.file !== f))} />
+            {picker("enquiry")}
+            <label className="mt-2 flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={includeCrm} onChange={(e) => setIncludeCrm(e.target.checked)} />
+              Also use the enquiries entered in this CRM
+            </label>
+            <FileList files={enqFiles} unit="enquiries" canDelete={canDelete} onRemove={remove} />
           </div>
         </Card>
       </div>
 
       {busy && <p className="my-3 text-sm text-slate-500">{busy}</p>}
       {errors.map((e) => <ErrorBox key={e} message={e} />)}
+      {files === null && !errors.length && <p className="my-3 text-sm text-slate-400">Loading saved files…</p>}
 
-      {rto.length > 0 && (
+      {data && data.totals.rows > 0 && (
         <Card
           title="3. Our dealership"
           note="Toyota sales by the ticked dealer names count as bought from us; other Toyota dealers are lost. Pre-ticked: Toyota dealer names with RAJESH."
         >
           <div className="p-3">
-          <div className="mb-3 flex flex-wrap items-center gap-4 text-sm">
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={carsOnly} onChange={(e) => setCarsOnly(e.target.checked)} />
-              Cars only (leave out tractors, buses, goods vehicles)
-            </label>
-            <label className="flex items-center gap-2">
-              Ignore a mobile number on more than
-              <input type="number" min={1} value={bulkLimit} onChange={(e) => setBulkLimit(Math.max(1, Number(e.target.value) || 1))} className={`${inputCls} w-16`} />
-              registrations (a dealer's or agent's number)
-            </label>
-          </div>
-          <div className="max-h-56 overflow-y-auto rounded border border-slate-200 p-2">
-            {toyotaDealers.map(([dealer, n]) => (
-              <label key={dealer} className="flex items-center gap-2 py-0.5 text-sm">
-                <input
-                  type="checkbox"
-                  checked={own.has(dealer)}
-                  onChange={(e) => {
-                    const next = new Set(own);
-                    if (e.target.checked) next.add(dealer);
-                    else next.delete(dealer);
-                    setOwnDealers(next);
-                  }}
-                />
-                <span className={own.has(dealer) ? "font-medium" : "text-slate-600"}>{dealer}</span>
-                <span className="text-xs text-slate-400">{n} Toyota</span>
+            <div className="mb-3 flex flex-wrap items-center gap-4 text-sm">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={carsOnly} onChange={(e) => setCarsOnly(e.target.checked)} />
+                Cars only (leave out tractors, buses, goods vehicles)
               </label>
-            ))}
-            {toyotaDealers.length === 0 && <p className="text-sm text-slate-500">No Toyota registrations in the dump.</p>}
-          </div>
+              <label className="flex items-center gap-2">
+                Ignore a mobile number on more than
+                <input type="number" min={1} value={bulkLimit} onChange={(e) => setBulkLimit(Math.max(1, Number(e.target.value) || 1))} className={`${inputCls} w-16`} />
+                registrations (a dealer's or agent's number)
+              </label>
+            </div>
+            <div className="max-h-56 overflow-y-auto rounded border border-slate-200 p-2">
+              {data.toyotaDealers.map(([dealer, n]) => (
+                <label key={dealer} className="flex items-center gap-2 py-0.5 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={own.has(dealer)}
+                    onChange={(e) => {
+                      const next = new Set(own);
+                      if (e.target.checked) next.add(dealer);
+                      else next.delete(dealer);
+                      setOwnDealers(next);
+                    }}
+                  />
+                  <span className={own.has(dealer) ? "font-medium" : "text-slate-600"}>{dealer}</span>
+                  <span className="text-xs text-slate-400">{n} Toyota</span>
+                </label>
+              ))}
+              {data.toyotaDealers.length === 0 && <p className="text-sm text-slate-500">No Toyota registrations in the saved dumps.</p>}
+            </div>
           </div>
         </Card>
       )}
 
-      {result ? <Results result={result} /> : (
-        <p className="mt-6 text-center text-sm text-slate-400">Upload both the RTO dump and the enquiry dump to see the result.</p>
+      {result ? <Results result={result} /> : files !== null && (
+        <p className="mt-6 text-center text-sm text-slate-400">
+          {canUpload ? "Upload the RTO dump and the enquiry dump to see the result." : "No RTO and enquiry dumps have been saved yet."}
+        </p>
       )}
     </div>
   );
 }
 
-function FileList<T>({ files, unit, onRemove }: { files: Loaded<T>[]; unit: string; onRemove: (file: string) => void }) {
-  if (!files.length) return null;
+function FileList({ files, unit, canDelete, onRemove }: { files: SavedFile[]; unit: string; canDelete: boolean; onRemove: (f: SavedFile) => void }) {
+  if (!files.length) return <p className="mt-3 text-sm text-slate-400">Nothing saved yet.</p>;
   return (
     <ul className="mt-3 space-y-1 text-sm">
       {files.map((f) => (
-        <li key={f.file} className="flex items-center gap-2">
-          <span className="font-medium">{f.file}</span>
-          <span className="text-slate-500">{f.rows.length.toLocaleString("en-IN")} {unit}</span>
-          {f.note && <span className="text-xs text-amber-700">{f.note}</span>}
-          <button type="button" className="text-xs text-slate-400 hover:text-red-600" onClick={() => onRemove(f.file)}>remove</button>
+        <li key={f.id} className="flex flex-wrap items-center gap-x-2">
+          <span className="font-medium">{f.file_name}</span>
+          <span className="text-slate-500">{f.row_count.toLocaleString("en-IN")} {unit}</span>
+          {f.skipped_rows > 0 && <span className="text-xs text-amber-700">{f.skipped_rows} rows without a valid mobile skipped</span>}
+          <span className="text-xs text-slate-400">
+            {fmtDateTime(f.uploaded_at)}
+            {f.employees?.name && ` · ${f.employees.name}`}
+          </span>
+          {canDelete && (
+            <button type="button" className="text-xs text-slate-400 hover:text-red-600" onClick={() => onRemove(f)}>remove</button>
+          )}
         </li>
       ))}
     </ul>
