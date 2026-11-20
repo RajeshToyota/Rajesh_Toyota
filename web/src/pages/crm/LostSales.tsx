@@ -26,9 +26,13 @@ const BATCH = 2000;
 const outcomeTone = { ours: "emerald", other_toyota: "amber", other_brand: "red" } as const;
 const pct = (n: number, d: number) => (d ? `${Math.round((n / d) * 100)}%` : "—");
 
-// Per-viewer settings (which dealer names are ours, the bulk limit, cars only, CRM enquiries).
+// Fixed rules: Toyota sales by a dealer named RAJESH are ours; only cars count; a mobile number on more
+// than BULK_LIMIT registrations is a dealer's or agent's, not the customer's.
+const BULK_LIMIT = 5;
+
+// Per-viewer setting: whether the CRM's own enquiries are included.
 const SETTINGS_KEY = "lost-sales-settings";
-type Settings = { ownDealers?: string[]; bulkLimit?: number; carsOnly?: boolean; includeCrm?: boolean };
+type Settings = { includeCrm?: boolean };
 function readSettings(): Settings {
   try {
     return JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as Settings;
@@ -84,14 +88,11 @@ export default function LostSales() {
   const [data, setData] = useState<Dataset | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
-  const [ownDealers, setOwnDealers] = useState<Set<string> | null>(initial.ownDealers ? new Set(initial.ownDealers) : null);
-  const [bulkLimit, setBulkLimit] = useState(initial.bulkLimit ?? 5);
-  const [carsOnly, setCarsOnly] = useState(initial.carsOnly ?? true);
   const [includeCrm, setIncludeCrm] = useState(initial.includeCrm ?? false);
 
   useEffect(() => {
-    saveSettings({ ownDealers: ownDealers ? [...ownDealers] : undefined, bulkLimit, carsOnly, includeCrm });
-  }, [ownDealers, bulkLimit, carsOnly, includeCrm]);
+    saveSettings({ includeCrm });
+  }, [includeCrm]);
 
   const reload = useCallback(async () => {
     const [f, d] = await Promise.all([
@@ -110,12 +111,12 @@ export default function LostSales() {
     void reload();
   }, [reload]);
 
-  const own = useMemo(() => ownDealers ?? new Set(guessOwnDealers(data?.toyotaDealers ?? [])), [ownDealers, data]);
+  const own = useMemo(() => new Set(guessOwnDealers(data?.toyotaDealers ?? [])), [data]);
   const rtoFiles = files?.filter((f) => f.kind === "rto") ?? [];
   const enqFiles = files?.filter((f) => f.kind === "enquiry") ?? [];
   const result = useMemo(
-    () => (data && data.totals.rows > 0 && data.enquiryMobiles > 0 ? matchRto(data, { ownDealers: own, bulkLimit, carsOnly }) : null),
-    [data, own, bulkLimit, carsOnly],
+    () => (data && data.totals.rows > 0 && data.enquiryMobiles > 0 ? matchRto(data, { ownDealers: own, bulkLimit: BULK_LIMIT, carsOnly: true }) : null),
+    [data, own],
   );
 
   async function upload(list: FileList | null, kind: "rto" | "enquiry") {
@@ -202,46 +203,6 @@ export default function LostSales() {
       {busy && <p className="my-3 text-sm text-slate-500">{busy}</p>}
       {errors.map((e) => <ErrorBox key={e} message={e} />)}
       {files === null && !errors.length && <p className="my-3 text-sm text-slate-400">Loading saved files…</p>}
-
-      {data && data.totals.rows > 0 && (
-        <Card
-          title="3. Our dealership"
-          note="Toyota sales by the ticked dealer names count as bought from us; other Toyota dealers are lost. Pre-ticked: Toyota dealer names with RAJESH."
-        >
-          <div className="p-3">
-            <div className="mb-3 flex flex-wrap items-center gap-4 text-sm">
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={carsOnly} onChange={(e) => setCarsOnly(e.target.checked)} />
-                Cars only (leave out tractors, buses, goods vehicles)
-              </label>
-              <label className="flex items-center gap-2">
-                Ignore a mobile number on more than
-                <input type="number" min={1} value={bulkLimit} onChange={(e) => setBulkLimit(Math.max(1, Number(e.target.value) || 1))} className={`${inputCls} w-16`} />
-                registrations (a dealer's or agent's number)
-              </label>
-            </div>
-            <div className="max-h-56 overflow-y-auto rounded border border-slate-200 p-2">
-              {data.toyotaDealers.map(([dealer, n]) => (
-                <label key={dealer} className="flex items-center gap-2 py-0.5 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={own.has(dealer)}
-                    onChange={(e) => {
-                      const next = new Set(own);
-                      if (e.target.checked) next.add(dealer);
-                      else next.delete(dealer);
-                      setOwnDealers(next);
-                    }}
-                  />
-                  <span className={own.has(dealer) ? "font-medium" : "text-slate-600"}>{dealer}</span>
-                  <span className="text-xs text-slate-400">{n} Toyota</span>
-                </label>
-              ))}
-              {data.toyotaDealers.length === 0 && <p className="text-sm text-slate-500">No Toyota registrations in the saved dumps.</p>}
-            </div>
-          </div>
-        </Card>
-      )}
 
       {result ? <Results result={result} /> : files !== null && (
         <p className="mt-6 text-center text-sm text-slate-400">
