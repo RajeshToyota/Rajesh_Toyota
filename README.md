@@ -128,4 +128,5 @@ engine in `supabase/migrations/` (Phase 1) for the shared `calculate_price` impl
   - `20261119070001` → `20261119121117` scheme_revision_edit (edit / delete a revision on the Schemes tab)
   - `20261119080001` → `20261119180726` lost_to_competition (Reporting → Lost to Competition: RTO dump matched to enquiries)
   - `20261120000001` → `20261120103858` lost_sales_saved_dumps (uploaded RTO / enquiry dumps are saved; comments stripped)
+  - `20261120020001` → `20261120110120` lost_sales_officer_enquiries (total enquiries per sales officer)
   - The us-east-1 fallback (`dvcjynxvqpcydcphdcst`) does not have these.

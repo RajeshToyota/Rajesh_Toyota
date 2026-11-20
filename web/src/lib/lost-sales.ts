@@ -193,6 +193,8 @@ export type Candidate = RtoRow & { mobileRegs: number };
 export type Dataset = {
   totals: { rows: number; noMobile: number; notCar: number };
   enquiryMobiles: number;
+  // Enquiries per sales officer, over all enquiries (not only those that registered).
+  officerEnquiries: [string, number][];
   toyotaDealers: [string, number][];
   candidates: Candidate[];
   enquiries: EnquiryRow[];
@@ -207,6 +209,7 @@ export function datasetFromRows(rto: RtoRow[], enquiries: EnquiryRow[]): Dataset
   return {
     totals: { rows: rto.length, noMobile: rto.filter((r) => !r.mobile).length, notCar: rto.filter((r) => r.mobile && !r.isCar).length },
     enquiryMobiles: enqMobiles.size,
+    officerEnquiries: tally(enquiries, (e) => e.officer),
     toyotaDealers: tally(rto.filter((r) => r.isToyota), (r) => r.dealer),
     candidates,
     enquiries: enquiries.filter((e) => candMobiles.has(e.mobile)),
@@ -250,6 +253,7 @@ export function matchRto(ds: Dataset, opt: Options) {
     skippedNotCar,
     noMobile: ds.totals.noMobile,
     enquiryMobiles: ds.enquiryMobiles,
+    officerEnquiries: ds.officerEnquiries,
   };
 }
 

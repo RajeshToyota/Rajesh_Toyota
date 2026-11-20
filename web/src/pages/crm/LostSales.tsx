@@ -54,13 +54,14 @@ type DbRto = {
   amount: number | null; dealer: string | null; is_car: boolean; is_toyota: boolean; mobile_regs: number;
 };
 type DbEnquiry = { mobile: string; name: string | null; model: string | null; grade: string | null; officer: string | null; enquiry_date: string | null; source: string };
-type DbData = { totals: { rows: number; no_mobile: number; not_car: number }; enquiry_mobiles: number; toyota_dealers: [string, number][]; candidates: DbRto[]; enquiries: DbEnquiry[] };
+type DbData = { totals: { rows: number; no_mobile: number; not_car: number }; enquiry_mobiles: number; officer_enquiries?: [string, number][]; toyota_dealers: [string, number][]; candidates: DbRto[]; enquiries: DbEnquiry[] };
 
 const s = (v: string | null | undefined) => v ?? "";
 function toDataset(d: DbData): Dataset {
   return {
     totals: { rows: d.totals.rows, noMobile: d.totals.no_mobile, notCar: d.totals.not_car },
     enquiryMobiles: d.enquiry_mobiles,
+    officerEnquiries: d.officer_enquiries ?? [],
     toyotaDealers: d.toyota_dealers,
     candidates: d.candidates.map(
       (r): Candidate => ({
@@ -274,17 +275,20 @@ function Results({ result }: { result: Result }) {
   const customers = new Set(matches.map((m) => m.mobile)).size;
   const lostCustomers = new Set(lost.map((m) => m.mobile)).size;
 
+  // Every officer with enquiries, even if none registered; a customer enquired with two officers counts
+  // under both names joined ("A / B"), which has no enquiry total of its own.
   const officers = useMemo(() => {
-    const m = new Map<string, { ours: number; lost: number }>();
+    const m = new Map<string, { enquiries: number | null; ours: number; lost: number }>();
+    for (const [o, n] of result.officerEnquiries) m.set(o, { enquiries: n, ours: 0, lost: 0 });
     for (const r of matches) {
       const k = uniq(r.enquiries.map((e) => e.officer)) || "—";
-      const v = m.get(k) ?? { ours: 0, lost: 0 };
+      const v = m.get(k) ?? { enquiries: null, ours: 0, lost: 0 };
       if (r.outcome === "ours") v.ours++;
       else v.lost++;
       m.set(k, v);
     }
-    return [...m].sort((a, b) => b[1].lost - a[1].lost);
-  }, [matches]);
+    return [...m].sort((a, b) => b[1].lost - a[1].lost || (b[1].enquiries ?? 0) - (a[1].enquiries ?? 0));
+  }, [matches, result.officerEnquiries]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toUpperCase();
@@ -325,12 +329,13 @@ function Results({ result }: { result: Result }) {
       <div className="grid gap-4 lg:grid-cols-3">
         <Breakdown title="Lost, by brand bought" rows={tally(lost, (m) => m.brand)} total={lost.length} onPick={(b) => { setBrand(b); setOutcome("lost"); }} />
         <Breakdown title="Lost, by dealer" rows={tally(lost, (m) => m.dealer)} total={lost.length} />
-        <Card title="By sales officer" note="Enquiries that registered: bought from us vs lost.">
+        <Card title="By sales officer" note="All their enquiries; of those that registered a car, bought from us vs lost.">
           <div className="max-h-80 overflow-y-auto">
-            <Table head={["Sales officer", "Ours", "Lost", "Lost %"]}>
+            <Table head={["Sales officer", "Enquiries", "Ours", "Lost", "Lost %"]}>
               {officers.map(([o, v]) => (
                 <tr key={o}>
                   <Td>{o}</Td>
+                  <Td right>{v.enquiries ?? "—"}</Td>
                   <Td right>{v.ours}</Td>
                   <Td right>{v.lost}</Td>
                   <Td right muted>{pct(v.lost, v.ours + v.lost)}</Td>

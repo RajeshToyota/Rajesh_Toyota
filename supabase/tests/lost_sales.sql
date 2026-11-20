@@ -64,6 +64,7 @@ begin
   end if;
   if jsonb_array_length(d->'toyota_dealers') <> 2 then raise exception 'toyota dealers: %', d->'toyota_dealers'; end if;
   if jsonb_array_length(d->'enquiries') <> 3 then raise exception 'enquiries: %', d->'enquiries'; end if;
+  if d->'officer_enquiries' <> '[["SO1", 2], ["SO2", 1]]'::jsonb then raise exception 'officer_enquiries: %', d->'officer_enquiries'; end if;
 end $$;
 
 -- Re-uploading the same file name replaces it.
