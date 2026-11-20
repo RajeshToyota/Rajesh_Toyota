@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useRightGate } from "@/lib/rbac";
 import {
@@ -265,6 +265,7 @@ function Results({ result }: { result: Result }) {
   const [outcome, setOutcome] = useState<"lost" | Outcome | "all">("lost");
   const [brand, setBrand] = useState("");
   const [search, setSearch] = useState("");
+  const [enquired, setEnquired] = useState("");
   const [shown, setShown] = useState(PAGE);
 
   const lost = matches.filter((m) => m.outcome !== "ours");
@@ -291,9 +292,10 @@ function Results({ result }: { result: Result }) {
       (m) =>
         (outcome === "all" || (outcome === "lost" ? m.outcome !== "ours" : m.outcome === outcome)) &&
         (!brand || m.brand === brand) &&
+        (!enquired || (uniq(m.enquiries.map((e) => e.model)) || "—") === enquired) &&
         (!q || [m.owner, m.mobile, m.regNo, m.model, m.dealer, ...m.enquiries.flatMap((e) => [e.name, e.model, e.officer])].some((s) => s.toUpperCase().includes(q))),
     );
-  }, [matches, outcome, brand, search]);
+  }, [matches, outcome, brand, search, enquired]);
 
   function download() {
     const blob = new Blob(["﻿" + matchesCsv(filtered)], { type: "text/csv;charset=utf-8" });
@@ -323,12 +325,9 @@ function Results({ result }: { result: Result }) {
       <div className="grid gap-4 lg:grid-cols-3">
         <Breakdown title="Lost, by brand bought" rows={tally(lost, (m) => m.brand)} total={lost.length} onPick={(b) => { setBrand(b); setOutcome("lost"); }} />
         <Breakdown title="Lost, by dealer" rows={tally(lost, (m) => m.dealer)} total={lost.length} />
-        <Breakdown title="Lost, by model enquired" rows={tally(lost, (m) => uniq(m.enquiries.map((e) => e.model)))} total={lost.length} />
-      </div>
-      <div className="grid gap-4 lg:grid-cols-2">
         <Card title="By sales officer" note="Enquiries that registered: bought from us vs lost.">
           <div className="max-h-80 overflow-y-auto">
-            <Table head={["Sales officer", "Bought from us", "Lost", "Lost %"]}>
+            <Table head={["Sales officer", "Ours", "Lost", "Lost %"]}>
               {officers.map(([o, v]) => (
                 <tr key={o}>
                   <Td>{o}</Td>
@@ -340,13 +339,30 @@ function Results({ result }: { result: Result }) {
             </Table>
           </div>
         </Card>
-        <Breakdown title="Lost, by model bought" rows={tally(lost, (m) => `${m.brand} · ${m.model}`)} total={lost.length} />
       </div>
 
+      <EnquiredVsBought
+        lost={lost}
+        onCustomers={(model) => {
+          setOutcome("lost");
+          setBrand("");
+          setSearch("");
+          setEnquired(model);
+          setShown(PAGE);
+          document.getElementById("lost-customers")?.scrollIntoView({ behavior: "smooth" });
+        }}
+      />
+
+      <div id="lost-customers" />
       <Card
         title={`Customers (${filtered.length})`}
         aside={
           <div className="flex flex-wrap items-center gap-2">
+            {enquired && (
+              <button type="button" onClick={() => setEnquired("")} className="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-800 hover:bg-blue-200" title="Clear">
+                Enquired: {enquired} ✕
+              </button>
+            )}
             <select value={outcome} onChange={(e) => { setOutcome(e.target.value as typeof outcome); setShown(PAGE); }} className={inputCls}>
               <option value="lost">Lost (all)</option>
               <option value="other_toyota">{OUTCOME_LABEL.other_toyota}</option>
@@ -408,6 +424,94 @@ function MatchRow({ m }: { m: Match }) {
         <Chip tone={outcomeTone[m.outcome]}>{OUTCOME_LABEL[m.outcome]}</Chip>
       </Td>
     </tr>
+  );
+}
+
+// For each model enquired: what those lost customers bought instead, by brand (another Toyota dealer
+// shows as "Toyota (other dealer)") and by model.
+function EnquiredVsBought({ lost, onCustomers }: { lost: Match[]; onCustomers: (model: string) => void }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const rows = useMemo(() => {
+    const m = new Map<string, Match[]>();
+    for (const r of lost) {
+      const k = uniq(r.enquiries.map((e) => e.model)) || "—";
+      const list = m.get(k);
+      if (list) list.push(r);
+      else m.set(k, [r]);
+    }
+    return [...m]
+      .map(([model, list]) => ({
+        model,
+        total: list.length,
+        brands: tally(list, (r) => (r.outcome === "other_toyota" ? "Toyota (other dealer)" : r.brand)),
+        models: tally(list, (r) => `${r.brand} · ${r.model}`),
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [lost]);
+  return (
+    <Card title="Enquired with us → bought instead" note="Each model customers enquired about, and the brand and model they registered elsewhere. Click a row for every model bought.">
+      <div className="max-h-[640px] overflow-y-auto">
+      <Table head={["Model enquired", "Lost", "Brand bought instead", "Top models bought", ""]}>
+        {rows.length === 0 ? (
+          <EmptyRow cols={5} text="Nothing lost." />
+        ) : (
+          rows.map((r) => (
+            <Fragment key={r.model}>
+              <tr className="cursor-pointer hover:bg-slate-50" onClick={() => setOpen(open === r.model ? null : r.model)}>
+                <Td>
+                  <span className="mr-1 inline-block w-3 text-slate-400">{open === r.model ? "▾" : "▸"}</span>
+                  <span className="font-medium">{r.model}</span>
+                </Td>
+                <Td right>{r.total}</Td>
+                <Td>
+                  <div className="flex flex-wrap gap-1">
+                    {r.brands.map(([b, n]) => (
+                      <Chip key={b} tone={b.startsWith("Toyota") ? "amber" : "slate"}>
+                        {b} {n}
+                      </Chip>
+                    ))}
+                  </div>
+                </Td>
+                <Td muted>
+                  {r.models.slice(0, 3).map(([m, n]) => (
+                    <div key={m}>
+                      {m} <span className="text-xs text-slate-400">{n}</span>
+                    </div>
+                  ))}
+                </Td>
+                <Td>
+                  <button
+                    type="button"
+                    className="text-xs text-blue-700 hover:underline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCustomers(r.model);
+                    }}
+                  >
+                    customers
+                  </button>
+                </Td>
+              </tr>
+              {open === r.model && (
+                <tr>
+                  <td colSpan={5} className="bg-slate-50 px-3 py-2">
+                    <div className="grid gap-x-6 gap-y-0.5 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                      {r.models.map(([m, n]) => (
+                        <div key={m} className="flex justify-between gap-2">
+                          <span className="truncate" title={m}>{m}</span>
+                          <span className="tabular-nums text-slate-600">{n}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </Fragment>
+          ))
+        )}
+      </Table>
+      </div>
+    </Card>
   );
 }
 
