@@ -89,6 +89,8 @@ export default function LostSales() {
   const [errors, setErrors] = useState<string[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [includeCrm, setIncludeCrm] = useState(initial.includeCrm ?? false);
+  // The upload boxes stay folded away once data is saved; "Add or manage files" opens them.
+  const [showFiles, setShowFiles] = useState(false);
 
   useEffect(() => {
     saveSettings({ includeCrm });
@@ -181,6 +183,23 @@ export default function LostSales() {
         note="Customers who enquired with us and then registered a car bought from another Toyota dealer or another brand, matched on mobile number."
       />
 
+      {files !== null && (() => {
+        const open = showFiles || files.length === 0;
+        return (
+          <>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm">
+              <span className="text-slate-600">
+                <span className="font-medium text-slate-900">Saved data:</span> {rtoFiles.length} RTO file{rtoFiles.length === 1 ? "" : "s"} ({rtoFiles.reduce((n, f) => n + f.row_count, 0).toLocaleString("en-IN")} registrations)
+                {" · "}{enqFiles.length} enquiry file{enqFiles.length === 1 ? "" : "s"} ({enqFiles.reduce((n, f) => n + f.row_count, 0).toLocaleString("en-IN")} enquiries)
+                {includeCrm && " · plus CRM enquiries"}
+              </span>
+              {files.length > 0 && (
+                <button type="button" onClick={() => setShowFiles(!showFiles)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100">
+                  {showFiles ? "Hide files" : canUpload ? "Add or manage files" : "Show files"}
+                </button>
+              )}
+            </div>
+            {open && (
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="1. RTO registration dumps" note="Saved once, kept for everyone. Add each new month as it comes; a file with the same name replaces the old one. A registration in two files counts once.">
           <div className="p-3">
@@ -199,6 +218,10 @@ export default function LostSales() {
           </div>
         </Card>
       </div>
+            )}
+          </>
+        );
+      })()}
 
       {busy && <p className="my-3 text-sm text-slate-500">{busy}</p>}
       {errors.map((e) => <ErrorBox key={e} message={e} />)}
